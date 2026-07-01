@@ -243,29 +243,13 @@ function drawMonthShareCard(th: Theme): void {
   canvas.height = h;
   const dark = state.dark;
 
-  const bg = ctx.createLinearGradient(0, 0, 0, h);
-  bg.addColorStop(0, dark ? "#15120F" : "#FFF8EC");
-  bg.addColorStop(0.58, dark ? "#252219" : "#F7EFE2");
-  bg.addColorStop(1, dark ? "#1A1714" : "#FFFDF8");
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, w, h);
+  ctx.clearRect(0, 0, w, h);
 
-  ctx.save();
-  ctx.globalAlpha = 0.16;
-  ctx.fillStyle = th.accent;
-  ctx.beginPath();
-  ctx.arc(880, 145, 240, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(175, 910, 280, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  const panelX = 64;
-  const panelY = 64;
-  const panelW = 952;
-  const panelH = 952;
-  ctx.fillStyle = dark ? "rgba(37,34,25,.88)" : "rgba(255,252,247,.88)";
+  const panelX = 2;
+  const panelY = 2;
+  const panelW = w - 4;
+  const panelH = h - 4;
+  ctx.fillStyle = dark ? "#252219" : "#FFFCF7";
   drawRoundRect(ctx, panelX, panelY, panelW, panelH, 48);
   ctx.fill();
   ctx.strokeStyle = th.border;
@@ -825,7 +809,7 @@ function renderMonthReportModal(th: Theme): HTMLElement {
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   const card = el("div", { style: { width: "min(430px,100%)", maxHeight: "92vh", overflowY: "auto", position: "relative", background: th.card, border: "1px solid " + th.border, borderRadius: "22px", padding: "14px", boxShadow: "0 20px 60px rgba(0,0,0,.35)" } });
   card.appendChild(el("button", { type: "button", title: "Close", style: { position: "absolute", top: "24px", right: "24px", zIndex: "2", width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card + "D9", color: th.sub, cursor: "pointer", fontSize: "20px", lineHeight: "1", boxShadow: "0 8px 18px rgba(0,0,0,.14)" }, onClick: () => close() }, "×"));
-  card.appendChild(el("canvas", { id: "monthShareCanvas", width: "1080", height: "1080", style: { width: "100%", aspectRatio: "1 / 1", borderRadius: "18px", border: "1px solid " + th.border, background: th.input, display: "block", boxShadow: "0 12px 34px rgba(0,0,0,.18)" } }));
+  card.appendChild(el("canvas", { id: "monthShareCanvas", width: "1080", height: "1080", style: { width: "100%", aspectRatio: "1 / 1", borderRadius: "18px", border: "1px solid " + th.border, background: "transparent", display: "block", boxShadow: "0 12px 34px rgba(0,0,0,.18)" } }));
   const actions = el("div", { style: { display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" } });
   const dl = el("button", { type: "button", style: { flex: "1", minWidth: "130px", padding: "11px", borderRadius: "10px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px" }, onClick: () => downloadShareCard() });
   dl.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Download</span>';

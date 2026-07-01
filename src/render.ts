@@ -26,22 +26,149 @@ function monthReportData(month: string) {
   return { wins, total, sources, topSource, biggestWin, goal, goalPct };
 }
 
-function downloadMonthShareCard(month: string): void {
+function yearReportData() {
+  const wins = yw();
+  const total = wins.reduce((sum, win) => sum + win.amount, 0);
+  const sourceMap: Record<string, number> = {};
+  wins.forEach((win) => { sourceMap[win.source] = (sourceMap[win.source] || 0) + win.amount; });
+  const sources = Object.entries(sourceMap).sort((a, b) => b[1] - a[1]);
+  const topSource = sources[0]?.[0] || "None yet";
+  const biggestWin = [...wins].sort((a, b) => b.amount - a.amount)[0];
+  const goal = MONTHS.reduce((sum, month) => sum + (state.goals[gk(month, state.year)] || 0), 0);
+  const goalPct = goal ? Math.min(Math.round((total / goal) * 100), 100) : 0;
+  return { wins, total, sources, topSource, biggestWin, goal, goalPct };
+}
+
+function activeShareReport() {
+  const yearly = state.yearReport;
+  const month = state.monthReport || MONTHS[new Date().getMonth()];
+  const report = yearly ? yearReportData() : monthReportData(month);
+  return {
+    ...report,
+    yearly,
+    title: yearly ? String(state.year) : month + " " + state.year,
+    fileLabel: yearly ? String(state.year) : month + "-" + state.year,
+    eyebrow: yearly ? "YEARLY EARNINGS" : "MONTHLY EARNINGS",
+    periodText: yearly ? "this year" : "in " + month,
+  };
+}
+
+function openMonthReport(month: string): void {
+  state.monthReport = month;
+  state.yearReport = false;
+  state.showSharePicker = false;
+  render();
+}
+
+function openYearReport(): void {
+  state.monthReport = null;
+  state.yearReport = true;
+  state.showSharePicker = false;
+  render();
+}
+
+function closeShareReport(): void {
+  state.monthReport = null;
+  state.yearReport = false;
+  render();
+}
+
+function resetYearOptions(): string[] {
+  const years = new Set<number>([state.year, Number(state.resetYear) || new Date().getFullYear()]);
+  state.wins.forEach((win) => years.add(win.year));
+  Object.keys(state.goals).forEach((key) => {
+    const splitAt = key.indexOf("-");
+    if (splitAt === -1) return;
+    const year = Number(key.slice(0, splitAt));
+    if (!Number.isNaN(year)) years.add(year);
+  });
+  return [...years].sort((a, b) => b - a).map(String);
+}
+
+function resetSummary(year: number, month?: string): { wins: number; goals: number; total: number } {
+  const wins = state.wins.filter((win) => win.year === year && (!month || win.month === month));
+  const goalKeys = month ? [gk(month, year)] : MONTHS.map((m) => gk(m, year));
+  return {
+    wins: wins.length,
+    goals: goalKeys.filter((key) => state.goals[key] !== undefined).length,
+    total: wins.reduce((sum, win) => sum + win.amount, 0),
+  };
+}
+
+function confirmResetProgress(scope: "month" | "year"): void {
+  const year = Number(state.resetYear);
+  if (Number.isNaN(year)) {
+    showToast("Choose a valid year");
+    return;
+  }
+  const month = scope === "month" ? state.resetMonth : undefined;
+  const summary = resetSummary(year, month);
+  const period = month ? month + " " + year : String(year);
+  state.confirm = {
+    title: "Reset progress for " + period + "?",
+    detail: summary.wins + " win" + (summary.wins === 1 ? "" : "s") + " · " + fmt(summary.total) + " · " + summary.goals + " goal" + (summary.goals === 1 ? "" : "s"),
+    message: "This deletes the selected winnings and goals. Your account, profile, sources, and other months stay untouched. This can't be undone.",
+    confirmLabel: "Reset",
+    onConfirm: () => {
+      if (month) {
+        state.wins = state.wins.filter((win) => !(win.year === year && win.month === month));
+        delete state.goals[gk(month, year)];
+      } else {
+        state.wins = state.wins.filter((win) => win.year !== year);
+        MONTHS.forEach((m) => { delete state.goals[gk(m, year)]; });
+      }
+      save();
+      render();
+      showToast("Reset " + period);
+    },
+  };
+  render();
+}
+
+function downloadShareCard(): void {
   const canvas = document.getElementById("monthShareCanvas") as HTMLCanvasElement | null;
   if (!canvas) return;
+  const report = activeShareReport();
   const a = document.createElement("a");
   a.href = canvas.toDataURL("image/png");
-  a.download = "Staxx-" + month + "-" + state.year + ".png";
+  a.download = "Staxx-" + report.fileLabel + ".png";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   showToast("Square report downloaded");
 }
 
-function shareMonthReport(month: string): void {
-  const report = monthReportData(month);
-  const text = "I made " + fmt(report.total) + " in " + month + " on Staxx.";
+function canvasPngFile(): Promise<File | null> {
+  const canvas = document.getElementById("monthShareCanvas") as HTMLCanvasElement | null;
+  if (!canvas) return Promise.resolve(null);
+  const report = activeShareReport();
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      if (!blob) { resolve(null); return; }
+      resolve(new File([blob], "Staxx-" + report.fileLabel + ".png", { type: "image/png" }));
+    }, "image/png");
+  });
+}
+
+async function shareReport(): Promise<void> {
+  const report = activeShareReport();
+  const text = "I made " + fmt(report.total) + " " + report.periodText + " on Staxx.";
+  const file = await canvasPngFile();
+  const webShare = navigator as Navigator & {
+    canShare?: (data: ShareData & { files?: File[] }) => boolean;
+    share?: (data: ShareData & { files?: File[] }) => Promise<void>;
+  };
+  if (file && webShare.share && (!webShare.canShare || webShare.canShare({ files: [file] }))) {
+    try {
+      await webShare.share({ title: "Staxx " + report.title + " report", text, files: [file] });
+      return;
+    } catch (error) {
+      if ((error as Error).name === "AbortError") return;
+    }
+  }
+  downloadShareCard();
   window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text), "_blank", "noopener,noreferrer");
+  showToast("Image downloaded. Attach it to your X post.");
 }
 
 function drawRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -79,13 +206,35 @@ function canvasText(ctx: CanvasRenderingContext2D, text: string, x: number, y: n
   return y + Math.max(lines, 1) * lineHeight;
 }
 
+function drawGoalBurst(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 5;
+  ctx.lineCap = "round";
+  const rays = [
+    [0, -42, 0, -22], [31, -30, 16, -15], [44, 0, 24, 0],
+    [30, 30, 15, 15], [0, 42, 0, 22], [-30, 30, -15, 15],
+  ];
+  rays.forEach(([x1, y1, x2, y2]) => {
+    ctx.beginPath();
+    ctx.moveTo(x + x1, y + y1);
+    ctx.lineTo(x + x2, y + y2);
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 0.34;
+  ctx.beginPath();
+  ctx.arc(x, y, 34, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawMonthShareCard(th: Theme): void {
-  if (!state.monthReport) return;
+  if (!state.monthReport && !state.yearReport) return;
   const canvas = document.getElementById("monthShareCanvas") as HTMLCanvasElement | null;
   const logo = document.querySelector<HTMLImageElement>('img[alt="Staxx logo"]');
   if (!canvas) return;
-  const month = state.monthReport;
-  const report = monthReportData(month);
+  const report = activeShareReport();
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const w = 1080;
@@ -136,12 +285,12 @@ function drawMonthShareCard(th: Theme): void {
   ctx.fillStyle = th.sub;
   ctx.font = "600 24px 'DM Sans', Arial, sans-serif";
   ctx.textAlign = "right";
-  ctx.fillText(month + " " + state.year, 976, 143);
+  ctx.fillText(report.title, 976, 143);
   ctx.textAlign = "left";
 
   ctx.fillStyle = th.sub;
   ctx.font = "700 26px 'DM Sans', Arial, sans-serif";
-  ctx.fillText("MONTHLY EARNINGS", 104, 256);
+  ctx.fillText(report.eyebrow, 104, 256);
   ctx.fillStyle = th.accent;
   ctx.font = "700 104px Georgia, serif";
   ctx.fillText(fmt(report.total), 104, 360);
@@ -151,18 +300,45 @@ function drawMonthShareCard(th: Theme): void {
   ctx.fillText(report.wins.length + " deal" + (report.wins.length === 1 ? "" : "s"), 108, 438);
   ctx.fillStyle = th.sub;
   ctx.font = "500 30px 'DM Sans', Arial, sans-serif";
-  canvasText(ctx, "Top source: " + report.topSource, 108, 488, 820, 38, 2);
+  const sourceTextEnd = canvasText(ctx, "Top source: " + report.topSource, 108, 488, 820, 38, 2);
 
   const barX = 108;
-  const barY = 590;
+  const barY = Math.max(568, sourceTextEnd + 44);
   const barW = 864;
-  const barH = 22;
+  const barH = 24;
+  const goalAmount = report.goal ? fmt(Math.min(report.total, report.goal)) + " of " + fmt(report.goal) : "No goal set";
+  const goalLabel = report.goal ? "Goal status · " + report.goalPct + "%" : "Goal status";
+  ctx.fillStyle = th.text;
+  ctx.font = "700 25px 'DM Sans', Arial, sans-serif";
+  ctx.fillText(goalLabel, barX, barY - 22);
+  ctx.fillStyle = th.sub;
+  ctx.font = "600 23px 'DM Sans', Arial, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(goalAmount, barX + barW, barY - 22);
+  ctx.textAlign = "left";
   ctx.fillStyle = th.barBg;
   drawRoundRect(ctx, barX, barY, barW, barH, 12);
   ctx.fill();
+  const goalRatio = report.goal ? Math.min(report.total / report.goal, 1) : 0;
+  const goalFillWidth = Math.max(report.goal && report.total > 0 ? 12 : 0, barW * goalRatio);
+  const exceededGoal = report.goal > 0 && report.total >= report.goal;
+  const goalGrad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+  goalGrad.addColorStop(0, th.accent);
+  goalGrad.addColorStop(1, exceededGoal ? th.green : "#DEB88A");
+  if (goalFillWidth > 0) {
+    ctx.fillStyle = goalGrad;
+    drawRoundRect(ctx, barX, barY, goalFillWidth, barH, 12);
+    ctx.fill();
+  }
+  if (exceededGoal) drawGoalBurst(ctx, barX + barW, barY + barH / 2, th.green);
+
+  ctx.fillStyle = th.sub;
+  ctx.font = "700 24px 'DM Sans', Arial, sans-serif";
+  ctx.fillText("SOURCE BREAKDOWN", 108, barY + 80);
+
   const sourceMax = report.sources[0]?.[1] || report.total || 1;
   report.sources.slice(0, 4).forEach(([src, amount], index) => {
-    const y = 658 + index * 72;
+    const y = barY + 125 + index * 62;
     const pct = Math.max(0.06, amount / sourceMax);
     ctx.fillStyle = th.text;
     ctx.font = "700 28px 'DM Sans', Arial, sans-serif";
@@ -180,7 +356,13 @@ function drawMonthShareCard(th: Theme): void {
     ctx.fill();
   });
 
-  const foot = report.goal ? "Goal progress: " + report.goalPct + "% of " + fmt(report.goal) : "Built with Staxx";
+  if (report.sources.length === 0) {
+    ctx.fillStyle = th.muted;
+    ctx.font = "600 26px 'DM Sans', Arial, sans-serif";
+    ctx.fillText("No source data yet", 108, barY + 135);
+  }
+
+  const foot = "Built with Staxx";
   ctx.fillStyle = th.sub;
   ctx.font = "600 26px 'DM Sans', Arial, sans-serif";
   ctx.fillText(foot, 108, 950);
@@ -190,8 +372,6 @@ function drawMonthShareCard(th: Theme): void {
 }
 
 export function render(): void {
-  const prevScrollX = window.scrollX;
-  const prevScrollY = window.scrollY;
   const th: Theme = state.dark ? DARK : LIGHT;
   const wins = yw();
   const totalEarned = wins.reduce((s, w) => s + w.amount, 0);
@@ -209,7 +389,6 @@ export function render(): void {
   Object.entries(srcMap).forEach(([n, v]) => { if (v > topSrc.t) topSrc = { n, t: v }; });
   const topSource = topSrc.t > 0 ? topSrc.n : "—";
 
-  const resetTargetMonth = state.winMonth || dm;
   const displayWins = (state.winMonth ? wins.filter((w) => w.month === state.winMonth) : wins).sort((a, b) => monthIndex(a.month) - monthIndex(b.month));
   const displayTotal = displayWins.reduce((s, w) => s + w.amount, 0);
   const srcPool = state.sourceView === "monthly" ? wins.filter((w) => w.month === state.sourceMonth) : wins;
@@ -252,13 +431,15 @@ export function render(): void {
   const hdrR = el("div", { style: { display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end", marginLeft: "auto" } });
 
   if (state.tab === "home") {
+    const shareBtn = el("button", { type: "button", title: "Share earnings", style: { width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: th.sub }, onClick: () => { state.showSharePicker = true; render(); } });
+    shareBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
     const thBtn = el("button", { style: { width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.dark = !state.dark; save(); render(); } });
     thBtn.innerHTML = state.dark ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + th.sub + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + th.sub + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
     const yrL = el("button", { style: { width: "32px", height: "32px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card, cursor: "pointer", fontSize: "14px", color: th.sub, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.year--; render(); } }, "←");
     const yrR = el("button", { style: { width: "32px", height: "32px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card, cursor: "pointer", fontSize: "14px", color: th.sub, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.year++; render(); } }, "→");
     const yrSpan = el("span", { style: { fontFamily: "'Playfair Display',serif", fontSize: "20px", fontWeight: "600", color: th.text, minWidth: "48px", textAlign: "center" } }, String(state.year));
-    hdrR.append(thBtn, yrL, yrSpan, yrR);
+    hdrR.append(shareBtn, thBtn, yrL, yrSpan, yrR);
   }
   hdr.append(hdrL, hdrR);
   app.appendChild(hdr);
@@ -351,7 +532,7 @@ export function render(): void {
   chartCard.appendChild(chartHdr);
 
   const isPie = state.chartType.toLowerCase() === "pie";
-  const canvas = el("canvas", { id: "mainChart", style: { width: "100%", maxHeight: isPie ? "360px" : "300px" } });
+  const canvas = el("canvas", { id: "mainChart", style: { width: "100%", height: isPie ? "360px" : "300px", maxHeight: isPie ? "360px" : "300px", display: "block" } });
   chartCard.appendChild(canvas);
   app.appendChild(chartCard);
 
@@ -518,22 +699,6 @@ export function render(): void {
   bottom.appendChild(sCol);
   app.appendChild(bottom);
 
-  // Reset buttons
-  const resetRow = el("div", { style: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "10px", padding: "0 20px 28px" } });
-  const rd = el("div", { style: { display: "flex", gap: "8px" } });
-  const mkReset = (label: string, type: "month" | "year") => {
-    const wrap = el("div", { style: { position: "relative" }, class: "reset-btn" });
-    const tip = el("div", { class: "reset-tooltip", style: { background: th.card, border: "1px solid " + th.border, color: th.sub } }, type === "month" ? "Reset wins for " + resetTargetMonth : "Reset wins for " + state.year);
-    wrap.appendChild(tip);
-    const btn = el("button", { style: { display: "flex", alignItems: "center", gap: "3px", padding: "4px 8px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.confirm = { title: type === "month" ? "Reset all wins for " + resetTargetMonth + " " + state.year + "?" : "Reset all wins for " + state.year + "?", message: "This deletes those winnings and their goals. This can't be undone.", confirmLabel: "Reset", onConfirm: () => { if (type === "month") { state.wins = state.wins.filter((w) => !(w.year === state.year && w.month === resetTargetMonth)); delete state.goals[gk(resetTargetMonth, state.year)]; } else { state.wins = state.wins.filter((w) => w.year !== state.year); MONTHS.forEach((m) => { delete state.goals[gk(m, state.year)]; }); } save(); render(); } }; render(); } });
-    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + th.muted + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><span style="font-size:10px;font-weight:600;color:' + th.muted + '">' + label + "</span>";
-    wrap.appendChild(btn);
-    return wrap;
-  };
-  rd.append(mkReset("M", "month"), mkReset("Y", "year"));
-  resetRow.appendChild(rd);
-  app.appendChild(resetRow);
-
   // Footer tip
   const footer = el("div", { style: { textAlign: "center", padding: "0 20px 24px" } });
   footer.appendChild(el("p", { style: { fontSize: "10px", color: th.muted, margin: "0", lineHeight: "1.5" } }, state.user ? "Synced to your account — " + state.user.email : cloudEnabled() ? "Sign in to sync your bags across devices. Your data is saved locally too." : "Your data lives in this browser. Export CSV regularly to back up or switch devices."));
@@ -552,18 +717,16 @@ export function render(): void {
   // Auth modal
   if (state.showAuth) app.appendChild(renderAuthModal(th));
   if (state.showProfileSetup && state.user) app.appendChild(renderProfileSetupModal(th));
-  if (state.monthReport) app.appendChild(renderMonthReportModal(th));
+  if (state.showSharePicker) app.appendChild(renderSharePickerModal(th));
+  if (state.monthReport || state.yearReport) app.appendChild(renderMonthReportModal(th));
 
   // Confirmation popup for any destructive action (delete / remove / reset)
   if (state.confirm) app.appendChild(renderConfirm(th));
 
   // Render chart
-  renderChart(th, wins, (month) => { state.monthReport = month; render(); });
+  renderChart(th, wins, (month) => { openMonthReport(month); });
   requestAnimationFrame(() => {
     drawMonthShareCard(th);
-    if (window.scrollX !== prevScrollX || window.scrollY !== prevScrollY) {
-      window.scrollTo(prevScrollX, prevScrollY);
-    }
   });
 }
 
@@ -616,72 +779,59 @@ function renderCSVPanel(th: Theme, embedded = false): HTMLElement {
   return cp;
 }
 
-function renderMonthReportModal(th: Theme): HTMLElement {
-  const month = state.monthReport!;
-  const report = monthReportData(month);
-  const close = () => { state.monthReport = null; render(); };
-  const ov = el("div", { style: { position: "fixed", inset: "0", background: "rgba(0,0,0,.56)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "208", padding: "20px", animation: "fadeIn .2s ease" } });
+function renderSharePickerModal(th: Theme): HTMLElement {
+  const close = () => { state.showSharePicker = false; render(); };
+  const ov = el("div", { style: { position: "fixed", inset: "0", background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "207", padding: "20px", animation: "fadeIn .2s ease" } });
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
-  const card = el("div", { style: { width: "min(980px,100%)", maxHeight: "92vh", overflowY: "auto", background: th.card, border: "1px solid " + th.border, borderRadius: "18px", padding: "22px", boxShadow: "0 20px 60px rgba(0,0,0,.35)" } });
-  const top = el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "14px", marginBottom: "16px" } });
+  const card = el("div", { style: { width: "min(420px,100%)", maxHeight: "92vh", overflowY: "auto", background: th.card, border: "1px solid " + th.border, borderRadius: "18px", padding: "22px", boxShadow: "0 18px 54px rgba(0,0,0,.32)" } });
+  const top = el("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "16px" } });
   const title = el("div", {});
-  title.appendChild(el("div", { style: { fontSize: "11px", color: th.sub, fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" } }, "Monthly report"));
-  title.appendChild(el("h2", { style: { fontFamily: "'Playfair Display',serif", fontSize: "26px", lineHeight: "1.1", color: th.text, margin: "0" } }, month + " " + state.year));
+  title.appendChild(el("h2", { style: { fontFamily: "'Playfair Display',serif", fontSize: "24px", lineHeight: "1.1", color: th.text, margin: "0 0 4px" } }, "Share earnings"));
+  title.appendChild(el("p", { style: { color: th.sub, fontSize: "12px", lineHeight: "1.45", margin: "0" } }, "Choose a month or the full year."));
   top.appendChild(title);
-  top.appendChild(el("button", { type: "button", title: "Close", style: { width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: "transparent", color: th.sub, cursor: "pointer", fontSize: "20px", lineHeight: "1", flexShrink: "0" }, onClick: () => close() }, "×"));
+  top.appendChild(el("button", { type: "button", title: "Close", style: { width: "32px", height: "32px", borderRadius: "50%", border: "1px solid " + th.border, background: "transparent", color: th.sub, cursor: "pointer", fontSize: "18px", lineHeight: "1", flexShrink: "0" }, onClick: () => close() }, "×"));
   card.appendChild(top);
 
-  const layout = el("div", { style: { display: "flex", gap: "18px", alignItems: "stretch", flexWrap: "wrap" } });
-  const left = el("div", { style: { flex: "1 1 440px", minWidth: "0", display: "flex", flexDirection: "column", gap: "12px" } });
-  const hero = el("div", { style: { border: "1px solid " + th.border, borderRadius: "14px", padding: "18px", background: th.input } });
-  hero.appendChild(el("div", { style: { fontSize: "12px", color: th.sub, marginBottom: "5px" } }, "Total earned"));
-  hero.appendChild(el("div", { style: { fontFamily: "'Playfair Display',serif", fontSize: "44px", lineHeight: "1", fontWeight: "700", color: th.accent, wordBreak: "break-word" } }, fmt(report.total)));
-  const meta = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: "8px", marginTop: "14px" } });
-  [
-    ["Deals", String(report.wins.length)],
-    ["Top source", report.topSource],
-    ["Biggest win", report.biggestWin ? fmt(report.biggestWin.amount) : "None"],
-    ["Goal", report.goal ? report.goalPct + "%" : "Not set"],
-  ].forEach(([label, value]) => {
-    const box = el("div", { style: { border: "1px solid " + th.border, borderRadius: "10px", padding: "10px", background: th.card } });
-    box.appendChild(el("div", { style: { fontSize: "10px", color: th.sub, textTransform: "uppercase", letterSpacing: ".8px", marginBottom: "4px" } }, label));
-    box.appendChild(el("div", { style: { fontSize: "15px", color: th.text, fontWeight: "700", wordBreak: "break-word" } }, value));
-    meta.appendChild(box);
+  const yearTotal = yw().reduce((sum, win) => sum + win.amount, 0);
+  const yearBtn = el("button", { type: "button", style: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "14px", borderRadius: "14px", border: "1px solid " + th.border, background: th.input, color: th.text, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", marginBottom: "14px", textAlign: "left" }, onClick: () => openYearReport() });
+  yearBtn.append(
+    el("span", { style: { display: "flex", flexDirection: "column", gap: "3px" } }, [
+      el("span", { style: { fontSize: "13px", fontWeight: "800" } }, String(state.year)),
+      el("span", { style: { fontSize: "11px", color: th.sub } }, "Full-year report"),
+    ]),
+    el("span", { style: { fontSize: "14px", fontWeight: "800", color: th.accent } }, fmt(yearTotal)),
+  );
+  card.appendChild(yearBtn);
+
+  card.appendChild(el("div", { style: { fontSize: "10px", color: th.sub, fontWeight: "800", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "8px" } }, "Months"));
+  const grid = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(108px,1fr))", gap: "8px" } });
+  MONTHS.forEach((month) => {
+    const total = yw().filter((win) => win.month === month).reduce((sum, win) => sum + win.amount, 0);
+    const btn = el("button", { type: "button", disabled: total <= 0, style: { padding: "11px 10px", borderRadius: "12px", border: "1px solid " + th.border, background: total > 0 ? th.card : th.input, color: total > 0 ? th.text : th.muted, cursor: total > 0 ? "pointer" : "default", fontFamily: "'DM Sans',sans-serif", textAlign: "left", opacity: total > 0 ? "1" : ".55" }, onClick: () => { if (total > 0) openMonthReport(month); } });
+    btn.append(
+      el("div", { style: { fontSize: "12px", fontWeight: "800", marginBottom: "3px" } }, month),
+      el("div", { style: { fontSize: "11px", color: total > 0 ? th.accent : th.muted, fontWeight: "700" } }, total > 0 ? fmt(total) : "No data"),
+    );
+    grid.appendChild(btn);
   });
-  hero.appendChild(meta);
-  left.appendChild(hero);
+  card.appendChild(grid);
+  ov.appendChild(card);
+  return ov;
+}
 
-  const breakdown = el("div", { style: { border: "1px solid " + th.border, borderRadius: "14px", padding: "16px", background: th.card } });
-  breakdown.appendChild(el("div", { style: { fontSize: "13px", color: th.text, fontWeight: "700", marginBottom: "12px" } }, "Source breakdown"));
-  if (report.sources.length === 0) {
-    breakdown.appendChild(el("div", { style: { color: th.muted, fontSize: "12px", padding: "18px 0" } }, "No earnings logged for this month yet."));
-  } else {
-    const max = report.sources[0][1] || 1;
-    report.sources.forEach(([src, amount]) => {
-      const pct = report.total ? Math.round((amount / report.total) * 100) : 0;
-      const row = el("div", { style: { marginBottom: "12px" } });
-      const rowTop = el("div", { style: { display: "flex", justifyContent: "space-between", gap: "10px", marginBottom: "5px", fontSize: "12px" } });
-      rowTop.appendChild(el("span", { style: { color: th.text, fontWeight: "700" } }, src));
-      rowTop.appendChild(el("span", { style: { color: th.sub, fontWeight: "700" } }, fmt(amount) + " · " + pct + "%"));
-      row.appendChild(rowTop);
-      const bar = el("div", { style: { height: "8px", borderRadius: "999px", background: th.barBg, overflow: "hidden" } });
-      bar.appendChild(el("div", { style: { width: Math.max(6, (amount / max) * 100) + "%", height: "100%", borderRadius: "999px", background: th.sc[src] || th.accent } }));
-      row.appendChild(bar);
-      breakdown.appendChild(row);
-    });
-  }
-  left.appendChild(breakdown);
-
-  const right = el("div", { style: { flex: "0 1 360px", minWidth: "280px", marginLeft: "auto" } });
-  right.appendChild(el("canvas", { id: "monthShareCanvas", width: "1080", height: "1080", style: { width: "100%", aspectRatio: "1 / 1", borderRadius: "18px", border: "1px solid " + th.border, background: th.input, display: "block", boxShadow: "0 12px 34px rgba(0,0,0,.18)" } }));
+function renderMonthReportModal(th: Theme): HTMLElement {
+  const close = () => closeShareReport();
+  const ov = el("div", { style: { position: "fixed", inset: "0", background: "rgba(0,0,0,.56)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "208", padding: "20px", animation: "fadeIn .2s ease" } });
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  const card = el("div", { style: { width: "min(430px,100%)", maxHeight: "92vh", overflowY: "auto", position: "relative", background: th.card, border: "1px solid " + th.border, borderRadius: "22px", padding: "14px", boxShadow: "0 20px 60px rgba(0,0,0,.35)" } });
+  card.appendChild(el("button", { type: "button", title: "Close", style: { position: "absolute", top: "24px", right: "24px", zIndex: "2", width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card + "D9", color: th.sub, cursor: "pointer", fontSize: "20px", lineHeight: "1", boxShadow: "0 8px 18px rgba(0,0,0,.14)" }, onClick: () => close() }, "×"));
+  card.appendChild(el("canvas", { id: "monthShareCanvas", width: "1080", height: "1080", style: { width: "100%", aspectRatio: "1 / 1", borderRadius: "18px", border: "1px solid " + th.border, background: th.input, display: "block", boxShadow: "0 12px 34px rgba(0,0,0,.18)" } }));
   const actions = el("div", { style: { display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" } });
-  actions.appendChild(el("button", { type: "button", style: { flex: "1", minWidth: "140px", padding: "11px", borderRadius: "10px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => downloadMonthShareCard(month) }, "Download square"));
-  actions.appendChild(el("button", { type: "button", style: { flex: "1", minWidth: "110px", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.accent, fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => shareMonthReport(month) }, "Share on X"));
-  right.appendChild(actions);
-  right.appendChild(el("p", { style: { fontSize: "11px", color: th.muted, lineHeight: "1.45", margin: "10px 0 0" } }, "Screenshot this card or download the square PNG for a cleaner post."));
-
-  layout.append(left, right);
-  card.appendChild(layout);
+  const dl = el("button", { type: "button", style: { flex: "1", minWidth: "130px", padding: "11px", borderRadius: "10px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px" }, onClick: () => downloadShareCard() });
+  dl.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Download</span>';
+  actions.appendChild(dl);
+  actions.appendChild(el("button", { type: "button", style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.accent, fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { void shareReport(); } }, "Share on X"));
+  card.appendChild(actions);
   ov.appendChild(card);
   return ov;
 }
@@ -818,6 +968,41 @@ function renderProfile(th: Theme): HTMLElement {
   data.appendChild(dbtns);
   if (state.showCSVPanel) data.appendChild(renderCSVPanel(th, true));
   wrap.appendChild(data);
+
+  // Reset progress
+  const reset = card("Reset progress");
+  reset.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 12px", lineHeight: "1.5" } }, "Choose exactly what to clear. Resetting removes matching winnings and goals only."));
+  const yearOptions = resetYearOptions();
+  if (!yearOptions.includes(state.resetYear)) state.resetYear = yearOptions[0] || String(state.year);
+  if (!MONTHS.includes(state.resetMonth)) state.resetMonth = MONTHS[new Date().getMonth()];
+  const selectedYear = Number(state.resetYear);
+  const monthSummary = resetSummary(selectedYear, state.resetMonth);
+  const yearSummary = resetSummary(selectedYear);
+  const resetGrid = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "10px", marginBottom: "12px" } });
+  resetGrid.append(
+    mkSelect(state.resetYear, yearOptions, (v) => { state.resetYear = v; render(); }, "Year", th),
+    mkSelect(state.resetMonth, MONTHS, (v) => { state.resetMonth = v; render(); }, "Month", th),
+  );
+  reset.appendChild(resetGrid);
+  const summaryGrid = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "8px", marginBottom: "12px" } });
+  [
+    ["Selected month", monthSummary.wins + " wins · " + fmt(monthSummary.total)],
+    ["Selected year", yearSummary.wins + " wins · " + fmt(yearSummary.total)],
+  ].forEach(([label, value]) => {
+    const box = el("div", { style: { border: "1px solid " + th.border, background: th.input, borderRadius: "10px", padding: "10px" } });
+    box.appendChild(el("div", { style: { fontSize: "10px", color: th.sub, textTransform: "uppercase", letterSpacing: ".8px", marginBottom: "4px" } }, label));
+    box.appendChild(el("div", { style: { color: th.text, fontSize: "13px", fontWeight: "700" } }, value));
+    summaryGrid.appendChild(box);
+  });
+  reset.appendChild(summaryGrid);
+  const resetBtns = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
+  const dangerBtn = (label: string, disabled: boolean, onClick: () => void) => el("button", { disabled, style: { flex: "1", minWidth: "150px", padding: "11px", borderRadius: "10px", border: "1px solid " + th.danger, background: disabled ? "transparent" : th.danger + "18", color: disabled ? th.muted : th.danger, fontSize: "12px", fontWeight: "800", cursor: disabled ? "default" : "pointer", fontFamily: "'DM Sans',sans-serif", opacity: disabled ? ".55" : "1" }, onClick: () => { if (!disabled) onClick(); } }, label);
+  resetBtns.append(
+    dangerBtn("Reset month", monthSummary.wins === 0 && monthSummary.goals === 0, () => confirmResetProgress("month")),
+    dangerBtn("Reset year", yearSummary.wins === 0 && yearSummary.goals === 0, () => confirmResetProgress("year")),
+  );
+  reset.appendChild(resetBtns);
+  wrap.appendChild(reset);
 
   // About
   const about = card("About");

@@ -65,10 +65,14 @@ export interface State {
   csvText: string;
   activeMonth: string | null;
   monthReport: string | null;
+  yearReport: boolean;
+  showSharePicker: boolean;
   winMonth: string | null;
   editingId: string | null;
   sourceView: SourceView;
   sourceMonth: string;
+  resetYear: string;
+  resetMonth: string;
   confirm: ConfirmDialog | null;
   toast: string | null;
   editingGoalKey: string | null;

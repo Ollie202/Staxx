@@ -4,8 +4,35 @@ import { state, showToast } from "./state";
 import { render } from "./render";
 import { cloudLoad, cloudSave } from "./cloud";
 import { KEY, DEFAULT_SOURCES } from "./constants";
+import type { PersistedData } from "./types";
 
 let cloudLoaded = false;
+
+function currentData(): PersistedData {
+  return { wins: state.wins, goals: state.goals, sources: state.sources };
+}
+
+function mergeData(local: PersistedData, cloud: PersistedData | null): PersistedData {
+  if (!cloud) return local;
+  const winsById = new Map<string, PersistedData["wins"][number]>();
+  [...cloud.wins, ...local.wins].forEach((win) => winsById.set(win.id, win));
+  return {
+    wins: Array.from(winsById.values()),
+    goals: { ...(cloud.goals || {}), ...(local.goals || {}) },
+    sources: Array.from(new Set([...(cloud.sources || []), ...(local.sources || [])])).filter(Boolean),
+  };
+}
+
+function applyData(data: PersistedData): void {
+  state.wins = data.wins || [];
+  state.goals = data.goals || {};
+  state.sources = data.sources && data.sources.length ? data.sources : [...DEFAULT_SOURCES];
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ wins: state.wins, goals: state.goals, sources: state.sources }));
+  } catch {
+    /* ignore */
+  }
+}
 
 export async function signInGoogle(): Promise<void> {
   if (!sb) { state.authError = "Cloud sync isn't configured yet."; render(); return; }
@@ -54,20 +81,11 @@ async function onSignedIn(session: Session, event: string): Promise<void> {
   state.user = session.user;
   if (!cloudLoaded && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
     cloudLoaded = true;
+    const local = currentData();
     const cloud = await cloudLoad();
-    if (cloud) {
-      state.wins = cloud.wins || [];
-      state.goals = cloud.goals || {};
-      state.sources = cloud.sources && cloud.sources.length ? cloud.sources : [...DEFAULT_SOURCES];
-      try {
-        localStorage.setItem(KEY, JSON.stringify({ wins: state.wins, goals: state.goals, sources: state.sources }));
-      } catch {
-        /* ignore */
-      }
-    } else {
-      // First sign-in with no cloud data yet — migrate whatever is local up to the cloud.
-      cloudSave();
-    }
+    const merged = mergeData(local, cloud);
+    applyData(merged);
+    cloudSave();
   }
   state.showAuth = false;
   render();

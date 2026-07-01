@@ -71,9 +71,6 @@ export function render(): void {
   hdrL.appendChild(el("p", { style: { margin: "8px 0 0", fontSize: "12px", color: th.sub, lineHeight: "1.4" } }, "Track your monthly wins, set earning goals, and watch your bags stack up."));
   const hdrR = el("div", { style: { display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end", marginLeft: "auto" } });
 
-  const csvBtn = el("button", { style: { width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.showCSVPanel = !state.showCSVPanel; state.csvMode = "export"; state.csvText = ""; render(); } });
-  csvBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + th.sub + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-
   const thBtn = el("button", { style: { width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.dark = !state.dark; save(); render(); } });
   thBtn.innerHTML = state.dark ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + th.sub + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + th.sub + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 
@@ -81,21 +78,7 @@ export function render(): void {
   const yrR = el("button", { style: { width: "32px", height: "32px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card, cursor: "pointer", fontSize: "14px", color: th.sub, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.year++; render(); } }, "→");
   const yrSpan = el("span", { style: { fontFamily: "'Playfair Display',serif", fontSize: "20px", fontWeight: "600", color: th.text, minWidth: "48px", textAlign: "center" } }, String(state.year));
 
-  // Auth / account button
-  const authWrap = el("div", { style: { position: "relative" } });
-  const authBtn = el("button", { style: { width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: state.user ? th.accent : th.card, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFCF7", fontSize: "14px", fontWeight: "700", fontFamily: "'DM Sans',sans-serif" }, title: state.user ? state.user.email : "Sign in to sync", onClick: () => { if (state.user) { state.showAccount = !state.showAccount; } else { state.showAuth = true; state.authError = ""; } render(); } });
-  if (state.user) { authBtn.textContent = ((state.user.email || "?")[0] || "?").toUpperCase(); }
-  else authBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + th.sub + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-  authWrap.appendChild(authBtn);
-  if (state.user && state.showAccount) {
-    const menu = el("div", { style: { position: "absolute", top: "42px", right: "0", background: th.card, border: "1px solid " + th.border, borderRadius: "10px", padding: "12px", minWidth: "190px", zIndex: "60", boxShadow: "0 8px 24px rgba(0,0,0,.18)", animation: "fadeIn .15s ease" } });
-    menu.appendChild(el("div", { style: { fontSize: "10px", color: th.muted, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "3px" } }, "Signed in as"));
-    menu.appendChild(el("div", { style: { fontSize: "12px", color: th.text, fontWeight: "600", marginBottom: "10px", wordBreak: "break-all" } }, state.user.email || ""));
-    menu.appendChild(el("button", { style: { width: "100%", padding: "9px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", color: th.accent, fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => signOut() }, "Sign out"));
-    authWrap.appendChild(menu);
-  }
-
-  hdrR.append(authWrap, csvBtn, thBtn, yrL, yrSpan, yrR);
+  hdrR.append(thBtn, yrL, yrSpan, yrR);
   hdr.append(hdrL, hdrR);
   app.appendChild(hdr);
 
@@ -437,7 +420,7 @@ function renderNav(th: Theme): HTMLElement {
     { id: "insights", label: "Insights", icon: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>' },
     { id: "profile", label: "Profile", icon: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
   ];
-  const bar = el("div", { style: { position: "fixed", bottom: "14px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "6px", padding: "6px", background: th.card + "F0", backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", border: "1px solid " + th.border, borderRadius: "999px", boxShadow: "0 10px 34px rgba(0,0,0,.34), 0 0 28px " + th.accent + "40", zIndex: "150" } });
+  const bar = el("div", { style: { position: "fixed", bottom: "14px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "6px", padding: "6px", background: th.card + "F0", backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", border: "1px solid " + th.border, borderRadius: "999px", boxShadow: "0 6px 18px rgba(0,0,0,.14), 0 0 14px " + th.accent + "1F", zIndex: "150" } });
   items.forEach((it) => {
     const active = state.tab === it.id;
     const btn = el("button", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", minWidth: "64px", padding: "8px 16px", borderRadius: "999px", border: "none", cursor: "pointer", background: active ? th.accent : "transparent", color: active ? "#FFFCF7" : th.sub, fontFamily: "'DM Sans',sans-serif", transition: "background .2s, color .2s" }, onClick: () => { state.tab = it.id; state.showCSVPanel = false; window.scrollTo({ top: 0 }); render(); } });

@@ -45,6 +45,10 @@ export function render(): void {
   app.style.background = th.bg;
   app.style.color = th.text;
   app.style.fontFamily = "'DM Sans',sans-serif";
+  // Paint the page root too, so the mobile status-bar / overscroll area matches
+  // the theme instead of showing a white gap.
+  document.documentElement.style.background = th.bg;
+  document.body.style.background = th.bg;
 
   // Toast
   if (state.toast) {
@@ -59,7 +63,7 @@ export function render(): void {
   brand.appendChild(el("h1", { style: { fontFamily: "'Playfair Display',serif", fontSize: "26px", fontWeight: "700", margin: "0", color: th.text, letterSpacing: "-0.5px", lineHeight: "1" } }, "Staxx"));
   hdrL.appendChild(brand);
   hdrL.appendChild(el("p", { style: { margin: "8px 0 0", fontSize: "12px", color: th.sub, lineHeight: "1.4" } }, "Track your monthly wins, set earning goals, and watch your bags stack up."));
-  const hdrR = el("div", { style: { display: "flex", gap: "6px", alignItems: "center" } });
+  const hdrR = el("div", { style: { display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end", marginLeft: "auto" } });
 
   const csvBtn = el("button", { style: { width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.showCSVPanel = !state.showCSVPanel; state.csvMode = "export"; state.csvText = ""; render(); } });
   csvBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + th.sub + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';

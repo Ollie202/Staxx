@@ -47,6 +47,7 @@ export interface ConfirmDialog {
 export interface State {
   dark: boolean;
   tab: Tab;
+  navOpen: boolean;
   year: number;
   chartType: string;
   wins: Win[];

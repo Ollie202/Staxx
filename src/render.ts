@@ -54,11 +54,11 @@ export function render(): void {
   // Header
   const hdr = el("div", { style: { padding: "28px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" } });
   const hdrL = el("div", {});
-  const brand = el("div", { style: { display: "flex", alignItems: "center", gap: "12px" } });
-  brand.appendChild(el("img", { src: LOGO_URL, alt: "Staxx logo", width: "46", height: "46", style: { width: "46px", height: "46px", borderRadius: "11px", flexShrink: "0", boxShadow: "0 2px 8px rgba(0,0,0,.12)" } }));
-  brand.appendChild(el("h1", { style: { fontFamily: "'Playfair Display',serif", fontSize: "28px", fontWeight: "700", margin: "0", color: th.text, letterSpacing: "-0.5px" } }, "Staxx"));
+  const brand = el("div", { style: { display: "flex", alignItems: "center", gap: "11px" } });
+  brand.appendChild(el("img", { src: LOGO_URL, alt: "Staxx logo", width: "38", height: "38", style: { width: "38px", height: "38px", borderRadius: "10px", flexShrink: "0", boxShadow: "0 2px 6px rgba(0,0,0,.1)" } }));
+  brand.appendChild(el("h1", { style: { fontFamily: "'Playfair Display',serif", fontSize: "26px", fontWeight: "700", margin: "0", color: th.text, letterSpacing: "-0.5px", lineHeight: "1" } }, "Staxx"));
   hdrL.appendChild(brand);
-  hdrL.appendChild(el("p", { style: { margin: "10px 0 0", fontSize: "12px", color: th.sub } }, "Track your monthly wins, set earning goals, and watch your bags stack up."));
+  hdrL.appendChild(el("p", { style: { margin: "8px 0 0", fontSize: "12px", color: th.sub, lineHeight: "1.4" } }, "Track your monthly wins, set earning goals, and watch your bags stack up."));
   const hdrR = el("div", { style: { display: "flex", gap: "6px", alignItems: "center" } });
 
   const csvBtn = el("button", { style: { width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.showCSVPanel = !state.showCSVPanel; state.csvMode = "export"; state.csvText = ""; render(); } });

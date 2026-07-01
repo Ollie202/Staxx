@@ -34,6 +34,15 @@ export type SourceView = "yearly" | "monthly";
 export type AuthMode = "signin" | "signup";
 export type ResetType = "month" | "year" | null;
 
+/** Generic confirmation dialog for any destructive action. */
+export interface ConfirmDialog {
+  title: string;
+  detail?: string;
+  message?: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+}
+
 export interface State {
   dark: boolean;
   year: number;
@@ -52,8 +61,7 @@ export interface State {
   editingId: string | null;
   sourceView: SourceView;
   sourceMonth: string;
-  confirmReset: ResetType;
-  confirmDeleteId: string | null;
+  confirm: ConfirmDialog | null;
   toast: string | null;
   editingGoalKey: string | null;
   addForm: AddForm;

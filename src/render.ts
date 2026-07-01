@@ -160,7 +160,7 @@ export function render(): void {
   } else gcL.appendChild(el("div", { style: { fontSize: "12px", color: th.muted, marginTop: "2px" } }, "No goal set"));
 
   const gcR = el("div", { style: { display: "flex", gap: "6px" } });
-  if (cGoal) gcR.appendChild(el("button", { style: { padding: "5px 10px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", cursor: "pointer", fontSize: "11px", color: th.accent, fontFamily: "'DM Sans',sans-serif" }, onClick: () => { const g = { ...state.goals }; delete g[gk(dm, state.year)]; state.goals = g; save(); render(); } }, "Remove"));
+  if (cGoal) gcR.appendChild(el("button", { style: { padding: "5px 10px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", cursor: "pointer", fontSize: "11px", color: th.accent, fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.confirm = { title: "Remove this goal?", detail: dm + " " + state.year + " goal — " + fmt(cGoal), message: "Your logged winnings stay; only the goal is removed.", confirmLabel: "Remove", onConfirm: () => { const g = { ...state.goals }; delete g[gk(dm, state.year)]; state.goals = g; save(); render(); } }; render(); } }, "Remove"));
   gcR.appendChild(el("button", { style: { padding: "5px 12px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.input, cursor: "pointer", fontSize: "11px", color: th.sub, fontFamily: "'DM Sans',sans-serif", fontWeight: "500" }, onClick: () => { state.goalForm = { month: dm, target: cGoal ? String(cGoal) : "" }; state.editingGoalKey = cGoal ? gk(dm, state.year) : null; state.showGoalForm = !state.showGoalForm; render(); } }, cGoal ? "Edit" : "Set Goal"));
   gcTop.append(gcL, gcR);
   gc.appendChild(gcTop);
@@ -302,7 +302,7 @@ export function render(): void {
         row.appendChild(info);
         const acts = el("div", { style: { display: "flex", gap: "3px", flexShrink: "0" } });
         acts.appendChild(el("button", { style: { width: "28px", height: "28px", borderRadius: "6px", border: "1px solid " + th.border, background: th.input, cursor: "pointer", fontSize: "11px", color: th.sub, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.editForm = { month: win.month, project: win.project, amount: String(win.amount), source: win.source || "Other" }; state.editingId = win.id; render(); } }, "✎"));
-        acts.appendChild(el("button", { style: { width: "28px", height: "28px", borderRadius: "6px", border: "1px solid " + th.border, background: th.input, cursor: "pointer", fontSize: "11px", color: th.accent, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.confirmDeleteId = win.id; render(); } }, "×"));
+        acts.appendChild(el("button", { style: { width: "28px", height: "28px", borderRadius: "6px", border: "1px solid " + th.border, background: th.input, cursor: "pointer", fontSize: "11px", color: th.accent, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.confirm = { title: "Delete this winning?", detail: win.project + " — " + win.month + " " + win.year + " · " + fmt(win.amount), message: "This removes it from your winnings and can't be undone.", confirmLabel: "Delete", onConfirm: () => { state.wins = state.wins.filter((w) => w.id !== win.id); if (state.editingId === win.id) state.editingId = null; save(); render(); } }; render(); } }, "×"));
         row.appendChild(acts);
         wList.appendChild(row);
       }
@@ -334,7 +334,7 @@ export function render(): void {
     state.sources.forEach((s) => {
       const tag = el("div", { style: { display: "flex", alignItems: "center", gap: "4px", padding: "4px 8px 4px 10px", borderRadius: "8px", background: th.card, border: "1px solid " + th.border, fontSize: "11px", color: th.text } });
       tag.appendChild(el("span", {}, s));
-      tag.appendChild(el("button", { style: { width: "16px", height: "16px", borderRadius: "4px", border: "none", background: "transparent", cursor: "pointer", fontSize: "10px", color: th.muted, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { if (state.sources.length <= 1) { showToast("Need at least one source"); return; } const fb = state.sources.find((x) => x !== s) || "Other"; state.sources = state.sources.filter((x) => x !== s); state.wins = state.wins.map((w) => w.source === s ? { ...w, source: fb } : w); save(); render(); showToast('Removed "' + s + '"'); } }, "×"));
+      tag.appendChild(el("button", { style: { width: "16px", height: "16px", borderRadius: "4px", border: "none", background: "transparent", cursor: "pointer", fontSize: "10px", color: th.muted, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { if (state.sources.length <= 1) { showToast("Need at least one source"); return; } const used = state.wins.filter((w) => w.source === s).length; state.confirm = { title: 'Remove "' + s + '"?', message: used > 0 ? used + " winning" + (used === 1 ? "" : "s") + " using this source will be moved to another source." : "No winnings use this source.", confirmLabel: "Remove", onConfirm: () => { const fb = state.sources.find((x) => x !== s) || "Other"; state.sources = state.sources.filter((x) => x !== s); state.wins = state.wins.map((w) => w.source === s ? { ...w, source: fb } : w); save(); render(); showToast('Removed "' + s + '"'); } }; render(); } }, "×"));
       tags.appendChild(tag);
     });
     sm.appendChild(tags);
@@ -389,26 +389,18 @@ export function render(): void {
 
   // Reset buttons
   const resetRow = el("div", { style: { display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "10px", padding: "0 20px 28px" } });
-  if (state.confirmReset) {
-    const cr = el("div", { style: { display: "flex", alignItems: "center", gap: "8px", animation: "fadeIn .15s ease" } });
-    cr.appendChild(el("span", { style: { fontSize: "11px", color: th.sub } }, state.confirmReset === "month" ? "Reset all wins for " + resetTargetMonth + " " + state.year + "?" : "Reset all wins for " + state.year + "?"));
-    cr.appendChild(el("button", { style: { padding: "5px 12px", borderRadius: "6px", border: "none", background: th.danger, color: "#FFFCF7", fontSize: "11px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { if (state.confirmReset === "month") { state.wins = state.wins.filter((w) => !(w.year === state.year && w.month === resetTargetMonth)); delete state.goals[gk(resetTargetMonth, state.year)]; } else { state.wins = state.wins.filter((w) => w.year !== state.year); MONTHS.forEach((m) => { delete state.goals[gk(m, state.year)]; }); } state.confirmReset = null; save(); render(); } }, "Yes"));
-    cr.appendChild(el("button", { style: { padding: "5px 12px", borderRadius: "6px", border: "1px solid " + th.border, background: "transparent", color: th.sub, fontSize: "11px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.confirmReset = null; render(); } }, "No"));
-    resetRow.appendChild(cr);
-  } else {
-    const rd = el("div", { style: { display: "flex", gap: "8px" } });
-    const mkReset = (label: string, type: "month" | "year") => {
-      const wrap = el("div", { style: { position: "relative" }, class: "reset-btn" });
-      const tip = el("div", { class: "reset-tooltip", style: { background: th.card, border: "1px solid " + th.border, color: th.sub } }, type === "month" ? "Reset wins for " + resetTargetMonth : "Reset wins for " + state.year);
-      wrap.appendChild(tip);
-      const btn = el("button", { style: { display: "flex", alignItems: "center", gap: "3px", padding: "4px 8px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.confirmReset = type; render(); } });
-      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + th.muted + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><span style="font-size:10px;font-weight:600;color:' + th.muted + '">' + label + "</span>";
-      wrap.appendChild(btn);
-      return wrap;
-    };
-    rd.append(mkReset("M", "month"), mkReset("Y", "year"));
-    resetRow.appendChild(rd);
-  }
+  const rd = el("div", { style: { display: "flex", gap: "8px" } });
+  const mkReset = (label: string, type: "month" | "year") => {
+    const wrap = el("div", { style: { position: "relative" }, class: "reset-btn" });
+    const tip = el("div", { class: "reset-tooltip", style: { background: th.card, border: "1px solid " + th.border, color: th.sub } }, type === "month" ? "Reset wins for " + resetTargetMonth : "Reset wins for " + state.year);
+    wrap.appendChild(tip);
+    const btn = el("button", { style: { display: "flex", alignItems: "center", gap: "3px", padding: "4px 8px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.confirm = { title: type === "month" ? "Reset all wins for " + resetTargetMonth + " " + state.year + "?" : "Reset all wins for " + state.year + "?", message: "This deletes those winnings and their goals. This can't be undone.", confirmLabel: "Reset", onConfirm: () => { if (type === "month") { state.wins = state.wins.filter((w) => !(w.year === state.year && w.month === resetTargetMonth)); delete state.goals[gk(resetTargetMonth, state.year)]; } else { state.wins = state.wins.filter((w) => w.year !== state.year); MONTHS.forEach((m) => { delete state.goals[gk(m, state.year)]; }); } save(); render(); } }; render(); } });
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + th.muted + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><span style="font-size:10px;font-weight:600;color:' + th.muted + '">' + label + "</span>";
+    wrap.appendChild(btn);
+    return wrap;
+  };
+  rd.append(mkReset("M", "month"), mkReset("Y", "year"));
+  resetRow.appendChild(rd);
   app.appendChild(resetRow);
 
   // Footer tip
@@ -419,30 +411,25 @@ export function render(): void {
   // Auth modal
   if (state.showAuth) app.appendChild(renderAuthModal(th));
 
-  // Delete-winning confirmation
-  if (state.confirmDeleteId && state.wins.some((w) => w.id === state.confirmDeleteId)) {
-    app.appendChild(renderConfirmDelete(th));
-  }
+  // Confirmation popup for any destructive action (delete / remove / reset)
+  if (state.confirm) app.appendChild(renderConfirm(th));
 
   // Render chart
   renderChart(th, wins);
 }
 
-/** Confirmation popup before deleting a winning (guards against mis-taps). */
-function renderConfirmDelete(th: Theme): HTMLElement {
-  const win = state.wins.find((w) => w.id === state.confirmDeleteId);
-  const close = () => { state.confirmDeleteId = null; render(); };
-  const ov = el("div", { style: { position: "fixed", inset: "0", background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "200", padding: "20px", animation: "fadeIn .2s ease" } });
+/** Generic confirmation popup for any destructive action (guards against mis-taps). */
+function renderConfirm(th: Theme): HTMLElement {
+  const c = state.confirm!;
+  const close = () => { state.confirm = null; render(); };
+  const ov = el("div", { style: { position: "fixed", inset: "0", background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "210", padding: "20px", animation: "fadeIn .2s ease" } });
   ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
   const card = el("div", { style: { background: th.card, border: "1px solid " + th.border, borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "340px", boxShadow: "0 12px 40px rgba(0,0,0,.25)" } });
-  card.appendChild(el("h2", { style: { fontFamily: "'Playfair Display',serif", fontSize: "20px", margin: "0 0 6px", color: th.text } }, "Delete this winning?"));
-  if (win) {
-    card.appendChild(el("p", { style: { fontSize: "13px", color: th.text, margin: "0 0 4px", fontWeight: "600" } }, win.project));
-    card.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 4px" } }, win.month + " " + win.year + " · " + win.source + " · " + fmt(win.amount)));
-  }
-  card.appendChild(el("p", { style: { fontSize: "12px", color: th.muted, margin: "8px 0 0", lineHeight: "1.5" } }, "This removes it from your winnings and can't be undone."));
+  card.appendChild(el("h2", { style: { fontFamily: "'Playfair Display',serif", fontSize: "20px", margin: "0 0 6px", color: th.text } }, c.title));
+  if (c.detail) card.appendChild(el("p", { style: { fontSize: "13px", color: th.text, margin: "0 0 4px", fontWeight: "600" } }, c.detail));
+  if (c.message) card.appendChild(el("p", { style: { fontSize: "12px", color: th.muted, margin: "6px 0 0", lineHeight: "1.5" } }, c.message));
   const btns = el("div", { style: { display: "flex", gap: "8px", marginTop: "18px" } });
-  btns.appendChild(el("button", { style: { flex: "1", padding: "11px", borderRadius: "10px", border: "none", background: th.danger, color: "#FFFCF7", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { const id = state.confirmDeleteId; state.wins = state.wins.filter((w) => w.id !== id); if (state.editingId === id) state.editingId = null; state.confirmDeleteId = null; save(); render(); } }, "Delete"));
+  btns.appendChild(el("button", { style: { flex: "1", padding: "11px", borderRadius: "10px", border: "none", background: th.danger, color: "#FFFCF7", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { const fn = c.onConfirm; state.confirm = null; fn(); } }, c.confirmLabel));
   btns.appendChild(el("button", { style: { flex: "1", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.sub, fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => close() }, "Cancel"));
   card.appendChild(btns);
   ov.appendChild(card);

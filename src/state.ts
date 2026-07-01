@@ -1,11 +1,16 @@
-import { KEY, DARK_KEY, DEFAULT_SOURCES, MONTHS } from "./constants";
-import type { State, PersistedData } from "./types";
+import { KEY, DARK_KEY, TAB_KEY, DEFAULT_SOURCES, MONTHS } from "./constants";
+import type { State, PersistedData, Tab } from "./types";
 import { cloudSave } from "./cloud";
 import { render } from "./render";
 
+const readTab = (): Tab => {
+  const tab = localStorage.getItem(TAB_KEY);
+  return tab === "insights" || tab === "profile" ? tab : "home";
+};
+
 export const state: State = {
   dark: localStorage.getItem(DARK_KEY) === "true",
-  tab: "home",
+  tab: readTab(),
   year: new Date().getFullYear(),
   chartType: "Bar",
   wins: [],
@@ -59,10 +64,22 @@ export function save(): void {
   try {
     localStorage.setItem(KEY, JSON.stringify({ wins: state.wins, goals: state.goals, sources: state.sources }));
     localStorage.setItem(DARK_KEY, state.dark ? "true" : "false");
+    localStorage.setItem(TAB_KEY, state.tab);
   } catch {
     /* ignore quota / private-mode errors */
   }
   cloudSave();
+}
+
+/** Switch tab and remember it across refreshes. */
+export function setTab(tab: Tab): void {
+  state.tab = tab;
+  state.showCSVPanel = false;
+  try {
+    localStorage.setItem(TAB_KEY, tab);
+  } catch {
+    /* ignore quota / private-mode errors */
+  }
 }
 
 /** Show a transient toast message. */

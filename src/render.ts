@@ -1,4 +1,4 @@
-import { state, save, showToast, gk, yw, doAddSource } from "./state";
+import { state, save, showToast, gk, yw, doAddSource, setTab } from "./state";
 import { LIGHT, DARK, type Theme } from "./theme";
 import type { Tab } from "./types";
 import { MONTHS, CHART_TYPES } from "./constants";
@@ -64,7 +64,7 @@ export function render(): void {
   // Header
   const hdr = el("div", { style: { padding: "28px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" } });
   const hdrL = el("div", {});
-  const brand = el("div", { style: { display: "flex", alignItems: "center", gap: "11px" } });
+  const brand = el("button", { type: "button", style: { display: "flex", alignItems: "center", gap: "11px", padding: "0", border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }, title: "Go home", onClick: () => { setTab("home"); window.scrollTo({ top: 0 }); render(); } });
   brand.appendChild(el("img", { src: LOGO_URL, alt: "Staxx logo", width: "30", height: "30", style: { width: "30px", height: "30px", borderRadius: "8px", flexShrink: "0", boxShadow: "0 1px 4px rgba(0,0,0,.12)" } }));
   brand.appendChild(el("h1", { style: { fontFamily: "'Playfair Display',serif", fontSize: "26px", fontWeight: "700", margin: "0", color: th.text, letterSpacing: "-0.5px", lineHeight: "1" } }, "Staxx"));
   hdrL.appendChild(brand);
@@ -424,7 +424,7 @@ function renderNav(th: Theme): HTMLElement {
   const bar = el("div", { style: { position: "fixed", bottom: "14px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "6px", padding: "6px", background: th.card + "F0", backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", border: "1px solid " + th.border, borderRadius: "999px", boxShadow: "0 6px 18px rgba(0,0,0,.14), 0 0 14px " + th.accent + "1F", zIndex: "150" } });
   items.forEach((it) => {
     const active = state.tab === it.id;
-    const btn = el("button", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", minWidth: "64px", padding: "8px 16px", borderRadius: "999px", border: "none", cursor: "pointer", background: active ? th.accent : "transparent", color: active ? "#FFFCF7" : th.sub, fontFamily: "'DM Sans',sans-serif", transition: "background .2s, color .2s" }, onClick: () => { state.tab = it.id; state.showCSVPanel = false; window.scrollTo({ top: 0 }); render(); } });
+    const btn = el("button", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", minWidth: "64px", padding: "8px 16px", borderRadius: "999px", border: "none", cursor: "pointer", background: active ? th.accent : "transparent", color: active ? "#FFFCF7" : th.sub, fontFamily: "'DM Sans',sans-serif", transition: "background .2s, color .2s" }, onClick: () => { setTab(it.id); window.scrollTo({ top: 0 }); render(); } });
     const ic = el("span", { style: { display: "flex" } });
     ic.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + it.icon + "</svg>";
     btn.append(ic, el("span", { style: { fontSize: "10px", fontWeight: active ? "700" : "500" } }, it.label));
@@ -495,15 +495,15 @@ function renderInsights(th: Theme): HTMLElement {
 
 /** Profile view — account, appearance, data, and about. */
 function renderProfile(th: Theme): HTMLElement {
-  const wrap = el("div", { style: { padding: "8px 20px 0", maxWidth: "820px", margin: "0 auto" } });
+  const wrap = el("div", { style: { padding: "8px 20px 0" } });
   wrap.appendChild(el("h2", { style: { fontFamily: "'Playfair Display',serif", fontSize: "22px", fontWeight: "700", margin: "8px 0 16px", color: th.text } }, "Profile"));
   const card = (title: string) => {
     const c = el("div", { style: { background: th.card, border: "1px solid " + th.border, borderRadius: "14px", padding: "18px", marginBottom: "14px" } });
     c.appendChild(el("div", { style: { fontSize: "11px", color: th.sub, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "12px" } }, title));
     return c;
   };
-  const primaryBtn = (label: string, onClick: () => void) => el("button", { style: { width: "100%", maxWidth: "260px", padding: "12px", borderRadius: "10px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick }, label);
-  const outlineBtn = (label: string, onClick: () => void) => el("button", { style: { flex: "0 1 160px", minWidth: "140px", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.text, fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick }, label);
+  const primaryBtn = (label: string, onClick: () => void) => el("button", { style: { width: "100%", padding: "12px", borderRadius: "10px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick }, label);
+  const outlineBtn = (label: string, onClick: () => void) => el("button", { style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.text, fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick }, label);
 
   // Account
   const acct = card("Account");

@@ -13,3 +13,4 @@ export const DEFAULT_SOURCES = [
 /** localStorage key for the persisted data blob. */
 export const KEY = "staxx-v1";
 export const DARK_KEY = "staxx-dark";
+export const TAB_KEY = "staxx-tab";

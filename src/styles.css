@@ -26,12 +26,3 @@ input, select, textarea { font-size: 16px !important; }
 }
 .reset-btn:hover .reset-tooltip { opacity: 1; }
 canvas { max-width: 100% !important; }
-
-@media (min-width: 900px) {
-  #app > div:not([style*="position: fixed"]) {
-    width: calc(100% - 64px);
-    max-width: 1120px;
-    margin-left: auto !important;
-    margin-right: auto !important;
-  }
-}

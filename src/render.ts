@@ -45,10 +45,15 @@ export function render(): void {
   app.style.background = th.bg;
   app.style.color = th.text;
   app.style.fontFamily = "'DM Sans',sans-serif";
-  // Paint the page root too, so the mobile status-bar / overscroll area matches
-  // the theme instead of showing a white gap.
-  document.documentElement.style.background = th.bg;
-  document.body.style.background = th.bg;
+  // Paint the page root with a SOLID color (not the gradient) so mobile browsers
+  // tint the status-bar / safe-area to match. A gradient leaves background-color
+  // transparent, which iOS samples as white — the cause of the top gap. Also keep
+  // the theme-color meta in sync for the browser UI.
+  const rootBg = state.dark ? "#1A1714" : "#FFFCF7";
+  document.documentElement.style.backgroundColor = rootBg;
+  document.body.style.backgroundColor = rootBg;
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.setAttribute("content", rootBg);
 
   // Toast
   if (state.toast) {
@@ -59,7 +64,7 @@ export function render(): void {
   const hdr = el("div", { style: { padding: "28px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" } });
   const hdrL = el("div", {});
   const brand = el("div", { style: { display: "flex", alignItems: "center", gap: "11px" } });
-  brand.appendChild(el("img", { src: LOGO_URL, alt: "Staxx logo", width: "38", height: "38", style: { width: "38px", height: "38px", borderRadius: "10px", flexShrink: "0", boxShadow: "0 2px 6px rgba(0,0,0,.1)" } }));
+  brand.appendChild(el("img", { src: LOGO_URL, alt: "Staxx logo", width: "30", height: "30", style: { width: "30px", height: "30px", borderRadius: "8px", flexShrink: "0", boxShadow: "0 1px 4px rgba(0,0,0,.12)" } }));
   brand.appendChild(el("h1", { style: { fontFamily: "'Playfair Display',serif", fontSize: "26px", fontWeight: "700", margin: "0", color: th.text, letterSpacing: "-0.5px", lineHeight: "1" } }, "Staxx"));
   hdrL.appendChild(brand);
   hdrL.appendChild(el("p", { style: { margin: "8px 0 0", fontSize: "12px", color: th.sub, lineHeight: "1.4" } }, "Track your monthly wins, set earning goals, and watch your bags stack up."));

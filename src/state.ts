@@ -22,6 +22,7 @@ export const state: State = {
   sourceView: "yearly",
   sourceMonth: MONTHS[new Date().getMonth()],
   confirmReset: null,
+  confirmDeleteId: null,
   toast: null,
   editingGoalKey: null,
   addForm: { month: MONTHS[new Date().getMonth()], project: "", amount: "", source: "Bounties" },

@@ -53,6 +53,7 @@ export interface State {
   sourceView: SourceView;
   sourceMonth: string;
   confirmReset: ResetType;
+  confirmDeleteId: string | null;
   toast: string | null;
   editingGoalKey: string | null;
   addForm: AddForm;

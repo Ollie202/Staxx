@@ -302,7 +302,7 @@ export function render(): void {
         row.appendChild(info);
         const acts = el("div", { style: { display: "flex", gap: "3px", flexShrink: "0" } });
         acts.appendChild(el("button", { style: { width: "28px", height: "28px", borderRadius: "6px", border: "1px solid " + th.border, background: th.input, cursor: "pointer", fontSize: "11px", color: th.sub, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.editForm = { month: win.month, project: win.project, amount: String(win.amount), source: win.source || "Other" }; state.editingId = win.id; render(); } }, "✎"));
-        acts.appendChild(el("button", { style: { width: "28px", height: "28px", borderRadius: "6px", border: "1px solid " + th.border, background: th.input, cursor: "pointer", fontSize: "11px", color: th.accent, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.wins = state.wins.filter((w) => w.id !== win.id); if (state.editingId === win.id) state.editingId = null; save(); render(); } }, "×"));
+        acts.appendChild(el("button", { style: { width: "28px", height: "28px", borderRadius: "6px", border: "1px solid " + th.border, background: th.input, cursor: "pointer", fontSize: "11px", color: th.accent, display: "flex", alignItems: "center", justifyContent: "center" }, onClick: () => { state.confirmDeleteId = win.id; render(); } }, "×"));
         row.appendChild(acts);
         wList.appendChild(row);
       }
@@ -419,8 +419,34 @@ export function render(): void {
   // Auth modal
   if (state.showAuth) app.appendChild(renderAuthModal(th));
 
+  // Delete-winning confirmation
+  if (state.confirmDeleteId && state.wins.some((w) => w.id === state.confirmDeleteId)) {
+    app.appendChild(renderConfirmDelete(th));
+  }
+
   // Render chart
   renderChart(th, wins);
+}
+
+/** Confirmation popup before deleting a winning (guards against mis-taps). */
+function renderConfirmDelete(th: Theme): HTMLElement {
+  const win = state.wins.find((w) => w.id === state.confirmDeleteId);
+  const close = () => { state.confirmDeleteId = null; render(); };
+  const ov = el("div", { style: { position: "fixed", inset: "0", background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "200", padding: "20px", animation: "fadeIn .2s ease" } });
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  const card = el("div", { style: { background: th.card, border: "1px solid " + th.border, borderRadius: "16px", padding: "24px", width: "100%", maxWidth: "340px", boxShadow: "0 12px 40px rgba(0,0,0,.25)" } });
+  card.appendChild(el("h2", { style: { fontFamily: "'Playfair Display',serif", fontSize: "20px", margin: "0 0 6px", color: th.text } }, "Delete this winning?"));
+  if (win) {
+    card.appendChild(el("p", { style: { fontSize: "13px", color: th.text, margin: "0 0 4px", fontWeight: "600" } }, win.project));
+    card.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 4px" } }, win.month + " " + win.year + " · " + win.source + " · " + fmt(win.amount)));
+  }
+  card.appendChild(el("p", { style: { fontSize: "12px", color: th.muted, margin: "8px 0 0", lineHeight: "1.5" } }, "This removes it from your winnings and can't be undone."));
+  const btns = el("div", { style: { display: "flex", gap: "8px", marginTop: "18px" } });
+  btns.appendChild(el("button", { style: { flex: "1", padding: "11px", borderRadius: "10px", border: "none", background: th.danger, color: "#FFFCF7", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { const id = state.confirmDeleteId; state.wins = state.wins.filter((w) => w.id !== id); if (state.editingId === id) state.editingId = null; state.confirmDeleteId = null; save(); render(); } }, "Delete"));
+  btns.appendChild(el("button", { style: { flex: "1", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.sub, fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => close() }, "Cancel"));
+  card.appendChild(btns);
+  ov.appendChild(card);
+  return ov;
 }
 
 /** Build the sign-in / sign-up modal overlay. */

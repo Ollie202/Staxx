@@ -8,7 +8,7 @@ import { state } from "./state";
 let chart: Chart | null = null;
 
 /** (Re)draw the main earnings chart based on the current chart type. */
-export function renderChart(th: Theme, wins: Win[]): void {
+export function renderChart(th: Theme, wins: Win[], onMonthClick?: (month: string) => void): void {
   const ctx = document.getElementById("mainChart") as HTMLCanvasElement | null;
   if (!ctx) return;
   if (chart) {
@@ -19,6 +19,17 @@ export function renderChart(th: Theme, wins: Win[]): void {
     parseFloat(wins.filter((w) => w.month === m).reduce((s, w) => s + w.amount, 0).toFixed(2)),
   );
   const type = state.chartType.toLowerCase();
+  const clickMonth = (_event: unknown, elements: { index: number }[]) => {
+    const index = elements[0]?.index;
+    if (index === undefined || data[index] <= 0) return;
+    onMonthClick?.(MONTHS[index]);
+  };
+  const hoverMonth = (event: { native?: { target?: EventTarget | null } }, elements: { index: number }[]) => {
+    const target = event.native?.target as HTMLElement | undefined;
+    if (!target) return;
+    const index = elements[0]?.index;
+    target.style.cursor = index !== undefined && data[index] > 0 && onMonthClick ? "pointer" : "default";
+  };
 
   if (type === "pie") {
     const srcMap: Record<string, number> = {};
@@ -40,7 +51,7 @@ export function renderChart(th: Theme, wins: Win[]): void {
     chart = new Chart(ctx, {
       type: "radar",
       data: { labels: MONTHS, datasets: [{ label: "Earnings", data, backgroundColor: th.accent + "30", borderColor: th.accent, borderWidth: 2, pointBackgroundColor: th.accent }] },
-      options: { responsive: true, maintainAspectRatio: false, scales: { r: { grid: { color: th.border }, angleLines: { color: th.border }, ticks: { display: false }, pointLabels: { color: th.sub, font: { family: "'DM Sans',sans-serif", size: 10 } } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i: any) => fmt(i.parsed.r) } } } },
+      options: { responsive: true, maintainAspectRatio: false, onClick: clickMonth, onHover: hoverMonth, scales: { r: { grid: { color: th.border }, angleLines: { color: th.border }, ticks: { display: false }, pointLabels: { color: th.sub, font: { family: "'DM Sans',sans-serif", size: 10 } } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i: any) => fmt(i.parsed.r) } } } },
     } as any);
     return;
   }
@@ -48,6 +59,6 @@ export function renderChart(th: Theme, wins: Win[]): void {
   chart = new Chart(ctx, {
     type: chartType as "line" | "bar",
     data: { labels: MONTHS, datasets: [{ label: "Earnings", data, backgroundColor: type === "area" ? th.accent + "20" : th.accent, borderColor: th.accent, borderWidth: type === "line" || type === "area" ? 2.5 : 0, borderRadius: type === "bar" ? 6 : 0, fill: type === "area", tension: 0.3, pointBackgroundColor: th.accent, pointBorderColor: th.card, pointBorderWidth: 2, pointRadius: type === "line" || type === "area" ? 3 : 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { display: false }, ticks: { color: th.sub, font: { family: "'DM Sans',sans-serif", size: 11 } }, border: { color: th.border } }, y: { grid: { color: th.border + "80", drawBorder: false }, ticks: { color: th.sub, font: { family: "'DM Sans',sans-serif", size: 11 }, callback: (v: any) => "$" + v }, border: { display: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i: any) => fmt(i.parsed.y) } } } },
+    options: { responsive: true, maintainAspectRatio: false, onClick: clickMonth, onHover: hoverMonth, scales: { x: { grid: { display: false }, ticks: { color: th.sub, font: { family: "'DM Sans',sans-serif", size: 11 } }, border: { color: th.border } }, y: { grid: { color: th.border + "80", drawBorder: false }, ticks: { color: th.sub, font: { family: "'DM Sans',sans-serif", size: 11 }, callback: (v: any) => "$" + v }, border: { display: false } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (i: any) => fmt(i.parsed.y) } } } },
   } as any);
 }

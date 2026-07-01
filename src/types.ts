@@ -64,6 +64,7 @@ export interface State {
   csvMode: CsvMode;
   csvText: string;
   activeMonth: string | null;
+  monthReport: string | null;
   winMonth: string | null;
   editingId: string | null;
   sourceView: SourceView;

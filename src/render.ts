@@ -1,7 +1,7 @@
 import { state, save, showToast, gk, yw, doAddSource, setTab } from "./state";
 import { LIGHT, DARK, type Theme } from "./theme";
 import type { Tab } from "./types";
-import { MONTHS, CHART_TYPES, OTHER_SOURCE } from "./constants";
+import { MONTHS, CHART_TYPES, OTHER_SOURCE, monthIndex } from "./constants";
 import { el, fmt, gid, $ } from "./dom";
 import { mkSelect, mkInput, mkPill, mkDropdown } from "./ui";
 import { renderChart } from "./chart";
@@ -12,6 +12,182 @@ import { cloudEnabled } from "./supabaseClient";
 // Logo lives in public/ so it's copied to the deploy root; BASE_URL keeps the
 // path correct on both the Vercel root and the GitHub Pages /Staxx/ subpath.
 const LOGO_URL = import.meta.env.BASE_URL + "favicon-192.png";
+
+function monthReportData(month: string) {
+  const wins = yw().filter((w) => w.month === month);
+  const total = wins.reduce((sum, win) => sum + win.amount, 0);
+  const sourceMap: Record<string, number> = {};
+  wins.forEach((win) => { sourceMap[win.source] = (sourceMap[win.source] || 0) + win.amount; });
+  const sources = Object.entries(sourceMap).sort((a, b) => b[1] - a[1]);
+  const topSource = sources[0]?.[0] || "None yet";
+  const biggestWin = [...wins].sort((a, b) => b.amount - a.amount)[0];
+  const goal = state.goals[gk(month, state.year)] || 0;
+  const goalPct = goal ? Math.min(Math.round((total / goal) * 100), 100) : 0;
+  return { wins, total, sources, topSource, biggestWin, goal, goalPct };
+}
+
+function downloadMonthShareCard(month: string): void {
+  const canvas = document.getElementById("monthShareCanvas") as HTMLCanvasElement | null;
+  if (!canvas) return;
+  const a = document.createElement("a");
+  a.href = canvas.toDataURL("image/png");
+  a.download = "Staxx-" + month + "-" + state.year + ".png";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast("Square report downloaded");
+}
+
+function shareMonthReport(month: string): void {
+  const report = monthReportData(month);
+  const text = "I made " + fmt(report.total) + " in " + month + " on Staxx.";
+  window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text), "_blank", "noopener,noreferrer");
+}
+
+function drawRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function canvasText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number, maxLines = 2): number {
+  const words = text.split(" ");
+  let line = "";
+  let lines = 0;
+  words.forEach((word) => {
+    const test = line ? line + " " + word : word;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      if (lines < maxLines) ctx.fillText(line, x, y + lines * lineHeight);
+      line = word;
+      lines++;
+    } else {
+      line = test;
+    }
+  });
+  if (line && lines < maxLines) {
+    ctx.fillText(line, x, y + lines * lineHeight);
+    lines++;
+  }
+  return y + Math.max(lines, 1) * lineHeight;
+}
+
+function drawMonthShareCard(th: Theme): void {
+  if (!state.monthReport) return;
+  const canvas = document.getElementById("monthShareCanvas") as HTMLCanvasElement | null;
+  const logo = document.querySelector<HTMLImageElement>('img[alt="Staxx logo"]');
+  if (!canvas) return;
+  const month = state.monthReport;
+  const report = monthReportData(month);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const w = 1080;
+  const h = 1080;
+  canvas.width = w;
+  canvas.height = h;
+  const dark = state.dark;
+
+  const bg = ctx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, dark ? "#15120F" : "#FFF8EC");
+  bg.addColorStop(0.58, dark ? "#252219" : "#F7EFE2");
+  bg.addColorStop(1, dark ? "#1A1714" : "#FFFDF8");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.save();
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = th.accent;
+  ctx.beginPath();
+  ctx.arc(880, 145, 240, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(175, 910, 280, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  const panelX = 64;
+  const panelY = 64;
+  const panelW = 952;
+  const panelH = 952;
+  ctx.fillStyle = dark ? "rgba(37,34,25,.88)" : "rgba(255,252,247,.88)";
+  drawRoundRect(ctx, panelX, panelY, panelW, panelH, 48);
+  ctx.fill();
+  ctx.strokeStyle = th.border;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  if (logo?.complete && logo.naturalWidth) {
+    ctx.drawImage(logo, 104, 104, 58, 58);
+  } else {
+    ctx.fillStyle = th.accent;
+    drawRoundRect(ctx, 104, 104, 58, 58, 16);
+    ctx.fill();
+  }
+  ctx.fillStyle = th.text;
+  ctx.font = "700 42px Georgia, serif";
+  ctx.fillText("Staxx", 180, 149);
+  ctx.fillStyle = th.sub;
+  ctx.font = "600 24px 'DM Sans', Arial, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(month + " " + state.year, 976, 143);
+  ctx.textAlign = "left";
+
+  ctx.fillStyle = th.sub;
+  ctx.font = "700 26px 'DM Sans', Arial, sans-serif";
+  ctx.fillText("MONTHLY EARNINGS", 104, 256);
+  ctx.fillStyle = th.accent;
+  ctx.font = "700 104px Georgia, serif";
+  ctx.fillText(fmt(report.total), 104, 360);
+
+  ctx.fillStyle = th.text;
+  ctx.font = "700 34px 'DM Sans', Arial, sans-serif";
+  ctx.fillText(report.wins.length + " deal" + (report.wins.length === 1 ? "" : "s"), 108, 438);
+  ctx.fillStyle = th.sub;
+  ctx.font = "500 30px 'DM Sans', Arial, sans-serif";
+  canvasText(ctx, "Top source: " + report.topSource, 108, 488, 820, 38, 2);
+
+  const barX = 108;
+  const barY = 590;
+  const barW = 864;
+  const barH = 22;
+  ctx.fillStyle = th.barBg;
+  drawRoundRect(ctx, barX, barY, barW, barH, 12);
+  ctx.fill();
+  const sourceMax = report.sources[0]?.[1] || report.total || 1;
+  report.sources.slice(0, 4).forEach(([src, amount], index) => {
+    const y = 658 + index * 72;
+    const pct = Math.max(0.06, amount / sourceMax);
+    ctx.fillStyle = th.text;
+    ctx.font = "700 28px 'DM Sans', Arial, sans-serif";
+    ctx.fillText(src, 108, y);
+    ctx.fillStyle = th.sub;
+    ctx.font = "600 25px 'DM Sans', Arial, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(fmt(amount), 972, y);
+    ctx.textAlign = "left";
+    ctx.fillStyle = th.barBg;
+    drawRoundRect(ctx, 108, y + 20, 864, 16, 10);
+    ctx.fill();
+    ctx.fillStyle = th.sc[src] || th.accent;
+    drawRoundRect(ctx, 108, y + 20, 864 * pct, 16, 10);
+    ctx.fill();
+  });
+
+  const foot = report.goal ? "Goal progress: " + report.goalPct + "% of " + fmt(report.goal) : "Built with Staxx";
+  ctx.fillStyle = th.sub;
+  ctx.font = "600 26px 'DM Sans', Arial, sans-serif";
+  ctx.fillText(foot, 108, 950);
+  ctx.textAlign = "right";
+  ctx.fillText("@Staxx", 972, 950);
+  ctx.textAlign = "left";
+}
 
 export function render(): void {
   const prevScrollX = window.scrollX;
@@ -34,7 +210,7 @@ export function render(): void {
   const topSource = topSrc.t > 0 ? topSrc.n : "—";
 
   const resetTargetMonth = state.winMonth || dm;
-  const displayWins = (state.winMonth ? wins.filter((w) => w.month === state.winMonth) : wins).sort((a, b) => MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month));
+  const displayWins = (state.winMonth ? wins.filter((w) => w.month === state.winMonth) : wins).sort((a, b) => monthIndex(a.month) - monthIndex(b.month));
   const displayTotal = displayWins.reduce((s, w) => s + w.amount, 0);
   const srcPool = state.sourceView === "monthly" ? wins.filter((w) => w.month === state.sourceMonth) : wins;
   const srcTotal = srcPool.reduce((s, w) => s + w.amount, 0);
@@ -124,7 +300,7 @@ export function render(): void {
     const p = g ? Math.min((e / g) * 100, 100) : 0;
     const hit = g && e >= g;
     const isA = m === dm;
-    const d = el("div", { style: { flex: "1 1 0", minWidth: "24px", cursor: "pointer", textAlign: "center" }, onClick: () => { state.activeMonth = isA && state.activeMonth === m ? null : m; render(); } });
+    const d = el("div", { style: { flex: "1 1 68px", minWidth: "58px", cursor: "pointer", textAlign: "center" }, onClick: () => { state.activeMonth = isA && state.activeMonth === m ? null : m; render(); } });
     d.appendChild(el("div", { style: { fontSize: "8px", color: isA ? th.text : th.muted, fontWeight: isA ? "600" : "400", marginBottom: "2px" } }, m));
     const b = el("div", { style: { height: "5px", background: th.barBg, borderRadius: "3px", overflow: "hidden" } });
     b.appendChild(el("div", { style: { width: g ? p + "%" : "0%", height: "100%", background: hit ? th.green : th.accent, borderRadius: "3px", transition: "width .5s ease" } }));
@@ -376,13 +552,15 @@ export function render(): void {
   // Auth modal
   if (state.showAuth) app.appendChild(renderAuthModal(th));
   if (state.showProfileSetup && state.user) app.appendChild(renderProfileSetupModal(th));
+  if (state.monthReport) app.appendChild(renderMonthReportModal(th));
 
   // Confirmation popup for any destructive action (delete / remove / reset)
   if (state.confirm) app.appendChild(renderConfirm(th));
 
   // Render chart
-  renderChart(th, wins);
+  renderChart(th, wins, (month) => { state.monthReport = month; render(); });
   requestAnimationFrame(() => {
+    drawMonthShareCard(th);
     if (window.scrollX !== prevScrollX || window.scrollY !== prevScrollY) {
       window.scrollTo(prevScrollX, prevScrollY);
     }
@@ -426,7 +604,7 @@ function renderCSVPanel(th: Theme, embedded = false): HTMLElement {
     fileLabel.appendChild(fi);
     cp.appendChild(fileLabel);
 
-    const ta = el("textarea", { style: { width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.input, color: th.text, fontSize: "11px", fontFamily: "monospace", minHeight: "120px", resize: "vertical", outline: "none", boxSizing: "border-box" }, placeholder: "Year,Month,Project,Amount,Source\n2026,Jan,MyProject,100,Bounties" }) as HTMLTextAreaElement;
+    const ta = el("textarea", { style: { width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.input, color: th.text, fontSize: "11px", fontFamily: "monospace", minHeight: "120px", resize: "vertical", outline: "none", boxSizing: "border-box" }, placeholder: "Year,Month,Project,Amount,Source\n2026,January,MyProject,100,Bounties" }) as HTMLTextAreaElement;
     ta.value = state.csvText;
     ta.oninput = (e) => { state.csvText = (e.target as HTMLTextAreaElement).value; };
     cp.appendChild(ta);
@@ -436,6 +614,76 @@ function renderCSVPanel(th: Theme, embedded = false): HTMLElement {
     cp.appendChild(btns);
   }
   return cp;
+}
+
+function renderMonthReportModal(th: Theme): HTMLElement {
+  const month = state.monthReport!;
+  const report = monthReportData(month);
+  const close = () => { state.monthReport = null; render(); };
+  const ov = el("div", { style: { position: "fixed", inset: "0", background: "rgba(0,0,0,.56)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "208", padding: "20px", animation: "fadeIn .2s ease" } });
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  const card = el("div", { style: { width: "min(980px,100%)", maxHeight: "92vh", overflowY: "auto", background: th.card, border: "1px solid " + th.border, borderRadius: "18px", padding: "22px", boxShadow: "0 20px 60px rgba(0,0,0,.35)" } });
+  const top = el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "14px", marginBottom: "16px" } });
+  const title = el("div", {});
+  title.appendChild(el("div", { style: { fontSize: "11px", color: th.sub, fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" } }, "Monthly report"));
+  title.appendChild(el("h2", { style: { fontFamily: "'Playfair Display',serif", fontSize: "26px", lineHeight: "1.1", color: th.text, margin: "0" } }, month + " " + state.year));
+  top.appendChild(title);
+  top.appendChild(el("button", { type: "button", title: "Close", style: { width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: "transparent", color: th.sub, cursor: "pointer", fontSize: "20px", lineHeight: "1", flexShrink: "0" }, onClick: () => close() }, "×"));
+  card.appendChild(top);
+
+  const layout = el("div", { style: { display: "flex", gap: "18px", alignItems: "stretch", flexWrap: "wrap" } });
+  const left = el("div", { style: { flex: "1 1 440px", minWidth: "0", display: "flex", flexDirection: "column", gap: "12px" } });
+  const hero = el("div", { style: { border: "1px solid " + th.border, borderRadius: "14px", padding: "18px", background: th.input } });
+  hero.appendChild(el("div", { style: { fontSize: "12px", color: th.sub, marginBottom: "5px" } }, "Total earned"));
+  hero.appendChild(el("div", { style: { fontFamily: "'Playfair Display',serif", fontSize: "44px", lineHeight: "1", fontWeight: "700", color: th.accent, wordBreak: "break-word" } }, fmt(report.total)));
+  const meta = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: "8px", marginTop: "14px" } });
+  [
+    ["Deals", String(report.wins.length)],
+    ["Top source", report.topSource],
+    ["Biggest win", report.biggestWin ? fmt(report.biggestWin.amount) : "None"],
+    ["Goal", report.goal ? report.goalPct + "%" : "Not set"],
+  ].forEach(([label, value]) => {
+    const box = el("div", { style: { border: "1px solid " + th.border, borderRadius: "10px", padding: "10px", background: th.card } });
+    box.appendChild(el("div", { style: { fontSize: "10px", color: th.sub, textTransform: "uppercase", letterSpacing: ".8px", marginBottom: "4px" } }, label));
+    box.appendChild(el("div", { style: { fontSize: "15px", color: th.text, fontWeight: "700", wordBreak: "break-word" } }, value));
+    meta.appendChild(box);
+  });
+  hero.appendChild(meta);
+  left.appendChild(hero);
+
+  const breakdown = el("div", { style: { border: "1px solid " + th.border, borderRadius: "14px", padding: "16px", background: th.card } });
+  breakdown.appendChild(el("div", { style: { fontSize: "13px", color: th.text, fontWeight: "700", marginBottom: "12px" } }, "Source breakdown"));
+  if (report.sources.length === 0) {
+    breakdown.appendChild(el("div", { style: { color: th.muted, fontSize: "12px", padding: "18px 0" } }, "No earnings logged for this month yet."));
+  } else {
+    const max = report.sources[0][1] || 1;
+    report.sources.forEach(([src, amount]) => {
+      const pct = report.total ? Math.round((amount / report.total) * 100) : 0;
+      const row = el("div", { style: { marginBottom: "12px" } });
+      const rowTop = el("div", { style: { display: "flex", justifyContent: "space-between", gap: "10px", marginBottom: "5px", fontSize: "12px" } });
+      rowTop.appendChild(el("span", { style: { color: th.text, fontWeight: "700" } }, src));
+      rowTop.appendChild(el("span", { style: { color: th.sub, fontWeight: "700" } }, fmt(amount) + " · " + pct + "%"));
+      row.appendChild(rowTop);
+      const bar = el("div", { style: { height: "8px", borderRadius: "999px", background: th.barBg, overflow: "hidden" } });
+      bar.appendChild(el("div", { style: { width: Math.max(6, (amount / max) * 100) + "%", height: "100%", borderRadius: "999px", background: th.sc[src] || th.accent } }));
+      row.appendChild(bar);
+      breakdown.appendChild(row);
+    });
+  }
+  left.appendChild(breakdown);
+
+  const right = el("div", { style: { flex: "0 1 360px", minWidth: "280px", marginLeft: "auto" } });
+  right.appendChild(el("canvas", { id: "monthShareCanvas", width: "1080", height: "1080", style: { width: "100%", aspectRatio: "1 / 1", borderRadius: "18px", border: "1px solid " + th.border, background: th.input, display: "block", boxShadow: "0 12px 34px rgba(0,0,0,.18)" } }));
+  const actions = el("div", { style: { display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" } });
+  actions.appendChild(el("button", { type: "button", style: { flex: "1", minWidth: "140px", padding: "11px", borderRadius: "10px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => downloadMonthShareCard(month) }, "Download square"));
+  actions.appendChild(el("button", { type: "button", style: { flex: "1", minWidth: "110px", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.accent, fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => shareMonthReport(month) }, "Share on X"));
+  right.appendChild(actions);
+  right.appendChild(el("p", { style: { fontSize: "11px", color: th.muted, lineHeight: "1.45", margin: "10px 0 0" } }, "Screenshot this card or download the square PNG for a cleaner post."));
+
+  layout.append(left, right);
+  card.appendChild(layout);
+  ov.appendChild(card);
+  return ov;
 }
 
 function renderNav(th: Theme): HTMLElement {

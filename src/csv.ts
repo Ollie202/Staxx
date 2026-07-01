@@ -1,5 +1,5 @@
 import { state, showToast, save } from "./state";
-import { MONTHS, OTHER_SOURCE } from "./constants";
+import { monthIndex, normalizeMonth, OTHER_SOURCE } from "./constants";
 import { gid } from "./dom";
 import { render } from "./render";
 import type { Goals, Win } from "./types";
@@ -41,7 +41,7 @@ export function exportCSV(): void {
   }
   const rows = ["Year,Month,Project,Amount,Source"];
   [...state.wins]
-    .sort((a, b) => a.year - b.year || MONTHS.indexOf(a.month) - MONTHS.indexOf(b.month))
+    .sort((a, b) => a.year - b.year || monthIndex(a.month) - monthIndex(b.month))
     .forEach((w) => {
       rows.push([w.year, w.month, w.project, w.amount, w.source].map(csvText).join(","));
     });
@@ -106,19 +106,19 @@ export function importCSV(): void {
     if (lower.startsWith("goal" + delim) || lower.startsWith("goal,") || lower.startsWith("goal;") || lower.startsWith("goal\t")) {
       const p = parseCsvLine(line, delim);
       if (p.length >= 4) {
-        const yr = parseInt(p[1]), mo = p[2].trim(), t = parseFloat(p[3]);
-        if (!isNaN(yr) && !isNaN(t) && MONTHS.includes(mo)) { ng[yr + "-" + mo] = t; gc++; continue; }
+        const yr = parseInt(p[1]), mo = normalizeMonth(p[2].trim()), t = parseFloat(p[3]);
+        if (!isNaN(yr) && !isNaN(t) && mo) { ng[yr + "-" + mo] = t; gc++; continue; }
       }
       sk++;
       continue;
     }
     const parts = parseCsvLine(line, delim);
     if (parts.length < 4) { sk++; continue; }
-    const yr = parseInt(parts[0]), mo = parts[1].trim(), proj = parts[2].trim(), amt = parseFloat(parts[3]);
+    const yr = parseInt(parts[0]), mo = normalizeMonth(parts[1].trim()), proj = parts[2].trim(), amt = parseFloat(parts[3]);
     const rawSrc = parts.length >= 5 && parts[4].trim() ? parts[4].trim() : OTHER_SOURCE;
     const existingSrc = state.sources.find((source) => source.toLowerCase() === rawSrc.toLowerCase()) || ns.find((source) => source.toLowerCase() === rawSrc.toLowerCase());
     const src = existingSrc || rawSrc;
-    if (isNaN(yr) || isNaN(amt) || !proj || !MONTHS.includes(mo)) { sk++; continue; }
+    if (isNaN(yr) || isNaN(amt) || !proj || !mo) { sk++; continue; }
     if (src && !existingSrc) ns.push(src);
     nw.push({ id: gid(), year: yr, month: mo, project: proj, amount: amt, source: src });
   }

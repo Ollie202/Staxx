@@ -1,6 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import { sb } from "./supabaseClient";
-import { state, showToast } from "./state";
+import { state, showToast, normalizePersistedData } from "./state";
 import { render } from "./render";
 import { clearCloudSave, cloudLoad, cloudSave } from "./cloud";
 import { KEY, DEFAULT_SOURCES } from "./constants";
@@ -13,10 +13,11 @@ function currentData(): PersistedData {
 }
 
 function applyData(data: PersistedData): void {
-  state.wins = data.wins || [];
-  state.goals = data.goals || {};
-  state.sources = data.sources && data.sources.length ? data.sources : [...DEFAULT_SOURCES];
-  state.profile = { username: data.profile?.username || "", avatar: data.profile?.avatar || "" };
+  const normalized = normalizePersistedData(data);
+  state.wins = normalized.wins;
+  state.goals = normalized.goals;
+  state.sources = normalized.sources && normalized.sources.length ? normalized.sources : [...DEFAULT_SOURCES];
+  state.profile = { username: normalized.profile?.username || "", avatar: normalized.profile?.avatar || "" };
   state.profileForm = { ...state.profile };
   try {
     localStorage.setItem(KEY, JSON.stringify({ wins: state.wins, goals: state.goals, sources: state.sources, profile: state.profile }));

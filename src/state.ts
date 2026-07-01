@@ -1,5 +1,5 @@
-import { KEY, DARK_KEY, TAB_KEY, DEFAULT_SOURCES, MONTHS, OTHER_SOURCE } from "./constants";
-import type { State, PersistedData, Tab } from "./types";
+import { KEY, DARK_KEY, TAB_KEY, DEFAULT_SOURCES, MONTHS, OTHER_SOURCE, normalizeMonth } from "./constants";
+import type { State, PersistedData, Tab, Goals, Win } from "./types";
 import { cloudSave } from "./cloud";
 import { render } from "./render";
 
@@ -23,6 +23,7 @@ export const state: State = {
   csvMode: "export",
   csvText: "",
   activeMonth: null,
+  monthReport: null,
   winMonth: null,
   editingId: null,
   sourceView: "yearly",
@@ -31,8 +32,8 @@ export const state: State = {
   toast: null,
   editingGoalKey: null,
   addForm: { month: MONTHS[new Date().getMonth()], project: "", amount: "", source: "Bounties" },
-  editForm: { month: "Jan", project: "", amount: "", source: "Bounties" },
-  goalForm: { month: "Jan", target: "" },
+  editForm: { month: MONTHS[0], project: "", amount: "", source: "Bounties" },
+  goalForm: { month: MONTHS[0], target: "" },
   newSource: "",
   user: null,
   showAuth: false,
@@ -49,15 +50,42 @@ export const state: State = {
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
+function normalizeWins(wins: Win[]): Win[] {
+  return wins.map((win) => ({ ...win, month: normalizeMonth(win.month) || win.month }));
+}
+
+function normalizeGoals(goals: Goals): Goals {
+  const out: Goals = {};
+  Object.entries(goals).forEach(([key, target]) => {
+    const splitAt = key.indexOf("-");
+    if (splitAt === -1) return;
+    const year = key.slice(0, splitAt);
+    const yearNumber = Number(year);
+    const month = normalizeMonth(key.slice(splitAt + 1));
+    if (!Number.isNaN(yearNumber) && month) out[gk(month, yearNumber)] = target;
+  });
+  return out;
+}
+
+export function normalizePersistedData(data: PersistedData): PersistedData {
+  return {
+    wins: normalizeWins(data.wins || []),
+    goals: normalizeGoals(data.goals || {}),
+    sources: data.sources || [],
+    profile: data.profile,
+  };
+}
+
 /** Load persisted data from localStorage into state. */
 export function load(): void {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) || "null") as PersistedData | null;
     if (d) {
-      if (d.wins && d.wins.length) state.wins = d.wins;
-      if (d.goals) state.goals = d.goals;
-      if (d.sources && d.sources.length) state.sources = d.sources.includes(OTHER_SOURCE) ? d.sources : [...d.sources, OTHER_SOURCE];
-      if (d.profile) state.profile = { username: d.profile.username || "", avatar: d.profile.avatar || "" };
+      const normalized = normalizePersistedData(d);
+      if (normalized.wins.length) state.wins = normalized.wins;
+      if (normalized.goals) state.goals = normalized.goals;
+      if (normalized.sources.length) state.sources = normalized.sources.includes(OTHER_SOURCE) ? normalized.sources : [...normalized.sources, OTHER_SOURCE];
+      if (normalized.profile) state.profile = { username: normalized.profile.username || "", avatar: normalized.profile.avatar || "" };
     }
   } catch {
     /* ignore malformed data */

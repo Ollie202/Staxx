@@ -82,54 +82,7 @@ export function render(): void {
   hdr.append(hdrL, hdrR);
   app.appendChild(hdr);
 
-  // CSV Panel
-  if (state.showCSVPanel) {
-    const cp = el("div", { style: { margin: "16px 20px 0", background: th.card, border: "1px solid " + th.border, borderRadius: "14px", padding: "18px", animation: "fadeIn .2s ease" } });
-    const tabs = el("div", { style: { display: "flex", background: th.toggleBg, borderRadius: "8px", padding: "2px", marginBottom: "14px", width: "fit-content" } });
-    const mkTab = (label: string, mode: "export" | "import") => el("button", { style: { padding: "5px 14px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "12px", fontWeight: state.csvMode === mode ? "600" : "400", background: state.csvMode === mode ? th.accent : "transparent", color: state.csvMode === mode ? "#FFFCF7" : th.sub, fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.csvMode = mode; state.csvText = ""; render(); } }, label);
-    tabs.append(mkTab("Export CSV", "export"), mkTab("Import CSV", "import"));
-    cp.appendChild(tabs);
-
-    if (state.csvMode === "export") {
-      cp.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, marginBottom: "10px" } }, "Export all your data as CSV. Copy to clipboard, download as file, or paste into Google Sheets / Excel."));
-      const btns = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
-      btns.appendChild(el("button", { style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "8px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => exportCSV() }, "Export to Clipboard"));
-      btns.appendChild(el("button", { style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "8px", border: "1px solid " + th.accent, background: "transparent", color: th.accent, fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => downloadCSV() }, "Download .csv File"));
-      btns.appendChild(el("button", { style: { padding: "11px 16px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", color: th.sub, fontSize: "12px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.showCSVPanel = false; render(); } }, "Close"));
-      cp.appendChild(btns);
-      if (state.csvText) {
-        const ta = el("textarea", { style: { width: "100%", marginTop: "12px", padding: "10px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.input, color: th.text, fontSize: "11px", fontFamily: "monospace", minHeight: "120px", resize: "vertical", outline: "none", boxSizing: "border-box" }, readOnly: "true" }) as HTMLTextAreaElement;
-        ta.value = state.csvText;
-        ta.onclick = () => ta.select();
-        cp.appendChild(ta);
-      }
-    } else {
-      cp.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, marginBottom: "6px" } }, "Paste CSV data below or upload a .csv file — wins and goals both get imported"));
-      cp.appendChild(el("p", { style: { fontSize: "10px", color: th.muted, marginBottom: "10px" } }, "Wins: Year,Month,Project,Amount,Source — Goals: GOAL,Year,Month,Target"));
-      const fileLabel = el("label", { style: { display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "8px", border: "1px solid " + th.accent, background: "transparent", color: th.accent, fontSize: "11px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", marginBottom: "10px" } });
-      fileLabel.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload .csv file';
-      const fi = el("input", { type: "file", accept: ".csv,.txt", style: { display: "none" } }) as HTMLInputElement;
-      fi.onchange = (e) => {
-        const f = (e.target as HTMLInputElement).files?.[0];
-        if (!f) return;
-        const r = new FileReader();
-        r.onload = (ev) => { state.csvText = (ev.target?.result as string) || ""; state.csvMode = "import"; render(); showToast("File loaded — click Import Data to apply"); };
-        r.readAsText(f);
-      };
-      fileLabel.appendChild(fi);
-      cp.appendChild(fileLabel);
-
-      const ta = el("textarea", { style: { width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.input, color: th.text, fontSize: "11px", fontFamily: "monospace", minHeight: "120px", resize: "vertical", outline: "none", boxSizing: "border-box" }, placeholder: "Year,Month,Project,Amount,Source\n2026,Jan,MyProject,100,Bounties" }) as HTMLTextAreaElement;
-      ta.value = state.csvText;
-      ta.oninput = (e) => { state.csvText = (e.target as HTMLTextAreaElement).value; };
-      cp.appendChild(ta);
-      const btns = el("div", { style: { display: "flex", gap: "8px", marginTop: "10px" } });
-      btns.appendChild(el("button", { style: { flex: "1", padding: "11px", borderRadius: "8px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => importCSV() }, "Import Data"));
-      btns.appendChild(el("button", { style: { padding: "11px 16px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", color: th.sub, fontSize: "12px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.showCSVPanel = false; state.csvText = ""; render(); } }, "Close"));
-      cp.appendChild(btns);
-    }
-    app.appendChild(cp);
-  }
+  if (state.showCSVPanel && state.tab !== "profile") app.appendChild(renderCSVPanel(th));
 
   if (state.tab === "home") {
   // Goal Card
@@ -414,6 +367,54 @@ export function render(): void {
 }
 
 /** Floating liquid-glass navigation bar (bottom, same on mobile + desktop). */
+function renderCSVPanel(th: Theme, embedded = false): HTMLElement {
+  const cp = el("div", { style: embedded ? { marginTop: "14px", paddingTop: "14px", borderTop: "1px solid " + th.border, animation: "fadeIn .2s ease" } : { margin: "16px 20px 0", background: th.card, border: "1px solid " + th.border, borderRadius: "14px", padding: "18px", animation: "fadeIn .2s ease" } });
+  const tabs = el("div", { style: { display: "flex", background: th.toggleBg, borderRadius: "8px", padding: "2px", marginBottom: "14px", width: "fit-content" } });
+  const mkTab = (label: string, mode: "export" | "import") => el("button", { style: { padding: "5px 14px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: "12px", fontWeight: state.csvMode === mode ? "600" : "400", background: state.csvMode === mode ? th.accent : "transparent", color: state.csvMode === mode ? "#FFFCF7" : th.sub, fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.csvMode = mode; state.csvText = ""; render(); } }, label);
+  tabs.append(mkTab("Export CSV", "export"), mkTab("Import CSV", "import"));
+  cp.appendChild(tabs);
+
+  if (state.csvMode === "export") {
+    cp.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, marginBottom: "10px" } }, "Export all your data as CSV. Copy to clipboard, download as file, or paste into Google Sheets / Excel."));
+    const btns = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
+    btns.appendChild(el("button", { style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "8px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => exportCSV() }, "Export to Clipboard"));
+    btns.appendChild(el("button", { style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "8px", border: "1px solid " + th.accent, background: "transparent", color: th.accent, fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => downloadCSV() }, "Download .csv File"));
+    btns.appendChild(el("button", { style: { padding: "11px 16px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", color: th.sub, fontSize: "12px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.showCSVPanel = false; render(); } }, "Close"));
+    cp.appendChild(btns);
+    if (state.csvText) {
+      const ta = el("textarea", { style: { width: "100%", marginTop: "12px", padding: "10px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.input, color: th.text, fontSize: "11px", fontFamily: "monospace", minHeight: "120px", resize: "vertical", outline: "none", boxSizing: "border-box" }, readOnly: "true" }) as HTMLTextAreaElement;
+      ta.value = state.csvText;
+      ta.onclick = () => ta.select();
+      cp.appendChild(ta);
+    }
+  } else {
+    cp.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, marginBottom: "6px" } }, "Paste CSV data below or upload a .csv file — wins and goals both get imported"));
+    cp.appendChild(el("p", { style: { fontSize: "10px", color: th.muted, marginBottom: "10px" } }, "Wins: Year,Month,Project,Amount,Source — Goals: GOAL,Year,Month,Target"));
+    const fileLabel = el("label", { style: { display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "8px", border: "1px solid " + th.accent, background: "transparent", color: th.accent, fontSize: "11px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", marginBottom: "10px" } });
+    fileLabel.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload .csv file';
+    const fi = el("input", { type: "file", accept: ".csv,.txt", style: { display: "none" } }) as HTMLInputElement;
+    fi.onchange = (e) => {
+      const f = (e.target as HTMLInputElement).files?.[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = (ev) => { state.csvText = (ev.target?.result as string) || ""; state.csvMode = "import"; render(); showToast("File loaded — click Import Data to apply"); };
+      r.readAsText(f);
+    };
+    fileLabel.appendChild(fi);
+    cp.appendChild(fileLabel);
+
+    const ta = el("textarea", { style: { width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.input, color: th.text, fontSize: "11px", fontFamily: "monospace", minHeight: "120px", resize: "vertical", outline: "none", boxSizing: "border-box" }, placeholder: "Year,Month,Project,Amount,Source\n2026,Jan,MyProject,100,Bounties" }) as HTMLTextAreaElement;
+    ta.value = state.csvText;
+    ta.oninput = (e) => { state.csvText = (e.target as HTMLTextAreaElement).value; };
+    cp.appendChild(ta);
+    const btns = el("div", { style: { display: "flex", gap: "8px", marginTop: "10px" } });
+    btns.appendChild(el("button", { style: { flex: "1", padding: "11px", borderRadius: "8px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => importCSV() }, "Import Data"));
+    btns.appendChild(el("button", { style: { padding: "11px 16px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", color: th.sub, fontSize: "12px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.showCSVPanel = false; state.csvText = ""; render(); } }, "Close"));
+    cp.appendChild(btns);
+  }
+  return cp;
+}
+
 function renderNav(th: Theme): HTMLElement {
   const items: { id: Tab; label: string; icon: string }[] = [
     { id: "home", label: "Home", icon: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>' },
@@ -494,15 +495,15 @@ function renderInsights(th: Theme): HTMLElement {
 
 /** Profile view — account, appearance, data, and about. */
 function renderProfile(th: Theme): HTMLElement {
-  const wrap = el("div", { style: { padding: "8px 20px 0" } });
+  const wrap = el("div", { style: { padding: "8px 20px 0", maxWidth: "820px", margin: "0 auto" } });
   wrap.appendChild(el("h2", { style: { fontFamily: "'Playfair Display',serif", fontSize: "22px", fontWeight: "700", margin: "8px 0 16px", color: th.text } }, "Profile"));
   const card = (title: string) => {
     const c = el("div", { style: { background: th.card, border: "1px solid " + th.border, borderRadius: "14px", padding: "18px", marginBottom: "14px" } });
     c.appendChild(el("div", { style: { fontSize: "11px", color: th.sub, textTransform: "uppercase", letterSpacing: "1px", marginBottom: "12px" } }, title));
     return c;
   };
-  const primaryBtn = (label: string, onClick: () => void) => el("button", { style: { width: "100%", padding: "12px", borderRadius: "10px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick }, label);
-  const outlineBtn = (label: string, onClick: () => void) => el("button", { style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.text, fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick }, label);
+  const primaryBtn = (label: string, onClick: () => void) => el("button", { style: { width: "100%", maxWidth: "260px", padding: "12px", borderRadius: "10px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick }, label);
+  const outlineBtn = (label: string, onClick: () => void) => el("button", { style: { flex: "0 1 160px", minWidth: "140px", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.text, fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick }, label);
 
   // Account
   const acct = card("Account");
@@ -531,10 +532,11 @@ function renderProfile(th: Theme): HTMLElement {
 
   // Data
   const data = card("Data");
-  const dbtns = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
-  dbtns.appendChild(outlineBtn("Export CSV", () => { state.tab = "home"; state.showCSVPanel = true; state.csvMode = "export"; state.csvText = ""; render(); }));
-  dbtns.appendChild(outlineBtn("Import CSV", () => { state.tab = "home"; state.showCSVPanel = true; state.csvMode = "import"; state.csvText = ""; render(); }));
+  const dbtns = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" } });
+  dbtns.appendChild(outlineBtn("Export CSV", () => { state.showCSVPanel = true; state.csvMode = "export"; state.csvText = ""; render(); }));
+  dbtns.appendChild(outlineBtn("Import CSV", () => { state.showCSVPanel = true; state.csvMode = "import"; state.csvText = ""; render(); }));
   data.appendChild(dbtns);
+  if (state.showCSVPanel) data.appendChild(renderCSVPanel(th, true));
   wrap.appendChild(data);
 
   // About

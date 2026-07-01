@@ -1,5 +1,14 @@
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; overflow-x: hidden; width: 100%; font-family: 'DM Sans', sans-serif; }
+html {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  width: 100%;
+  font-family: 'DM Sans', sans-serif;
+}
+body { margin: 0; padding: 0; overflow-x: hidden; width: 100%; font-family: 'DM Sans', sans-serif; }
 * { -webkit-tap-highlight-color: transparent; }
 input, select, textarea { font-size: 16px !important; }
 
@@ -17,3 +26,12 @@ input, select, textarea { font-size: 16px !important; }
 }
 .reset-btn:hover .reset-tooltip { opacity: 1; }
 canvas { max-width: 100% !important; }
+
+@media (min-width: 900px) {
+  #app > div:not([style*="position: fixed"]) {
+    width: calc(100% - 64px);
+    max-width: 1120px;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}

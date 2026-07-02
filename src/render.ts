@@ -1,7 +1,7 @@
-import { state, save, showToast, gk, yw, doAddSource, setTab } from "./state";
+import { state, save, showToast, gk, ygk, yw, doAddSource, setTab } from "./state";
 import { LIGHT, DARK, type Theme } from "./theme";
 import type { Tab } from "./types";
-import { MONTHS, CHART_TYPES, OTHER_SOURCE, monthIndex } from "./constants";
+import { MONTHS, CHART_TYPES, OTHER_SOURCE, YEARLY_GOAL_LABEL, monthIndex } from "./constants";
 import { el, fmt, gid, $ } from "./dom";
 import { mkSelect, mkInput, mkPill, mkDropdown } from "./ui";
 import { renderChart } from "./chart";
@@ -34,7 +34,7 @@ function yearReportData() {
   const sources = Object.entries(sourceMap).sort((a, b) => b[1] - a[1]);
   const topSource = sources[0]?.[0] || "None yet";
   const biggestWin = [...wins].sort((a, b) => b.amount - a.amount)[0];
-  const goal = MONTHS.reduce((sum, month) => sum + (state.goals[gk(month, state.year)] || 0), 0);
+  const goal = state.goals[ygk(state.year)] || 0;
   const goalPct = goal ? Math.round((total / goal) * 100) : 0;
   return { wins, total, sources, topSource, biggestWin, goal, goalPct };
 }
@@ -87,7 +87,7 @@ function resetYearOptions(): string[] {
 
 function resetSummary(year: number, month?: string): { wins: number; goals: number; total: number } {
   const wins = state.wins.filter((win) => win.year === year && (!month || win.month === month));
-  const goalKeys = month ? [gk(month, year)] : MONTHS.map((m) => gk(m, year));
+  const goalKeys = month ? [gk(month, year)] : [...MONTHS.map((m) => gk(m, year)), ygk(year)];
   return {
     wins: wins.length,
     goals: goalKeys.filter((key) => state.goals[key] !== undefined).length,
@@ -116,6 +116,7 @@ function confirmResetProgress(scope: "month" | "year"): void {
       } else {
         state.wins = state.wins.filter((win) => win.year !== year);
         MONTHS.forEach((m) => { delete state.goals[gk(m, year)]; });
+        delete state.goals[ygk(year)];
       }
       save();
       render();
@@ -260,7 +261,7 @@ function drawMonthShareCard(th: Theme): void {
   ctx.font = "700 42px Georgia, serif";
   ctx.fillText("Staxx", 180, 149);
   ctx.fillStyle = th.sub;
-  ctx.font = "600 24px 'DM Sans', Arial, sans-serif";
+  ctx.font = "800 32px 'DM Sans', Arial, sans-serif";
   ctx.textAlign = "right";
   ctx.fillText(report.title, 976, 143);
   ctx.textAlign = "left";
@@ -283,7 +284,7 @@ function drawMonthShareCard(th: Theme): void {
   const barY = Math.max(568, sourceTextEnd + 44);
   const barW = 864;
   const barH = 24;
-  const goalAmount = report.goal ? fmt(Math.min(report.total, report.goal)) + " of " + fmt(report.goal) : "No goal set";
+  const goalAmount = report.goal ? fmt(report.total) + " of " + fmt(report.goal) : "No goal set";
   const goalLabel = report.goal ? "Goal status · " + report.goalPct + "%" : "Goal status";
   ctx.fillStyle = th.text;
   ctx.font = "700 25px 'DM Sans', Arial, sans-serif";
@@ -363,17 +364,24 @@ function drawMonthShareCard(th: Theme): void {
 export function render(): void {
   const th: Theme = state.dark ? DARK : LIGHT;
   const wins = yw();
-  const totalEarned = wins.reduce((s, w) => s + w.amount, 0);
-  const dm = state.activeMonth || MONTHS[new Date().getMonth()];
-  const cGoal = state.goals[gk(dm, state.year)];
-  const cEarned = wins.filter((w) => w.month === dm).reduce((s, w) => s + w.amount, 0);
-  const gPct = cGoal ? Math.min((cEarned / cGoal) * 100, 100) : 0;
+  if (!MONTHS.includes(state.summaryMonth)) state.summaryMonth = state.activeMonth || MONTHS[new Date().getMonth()];
+  const summaryScope = state.summaryScope;
+  const dm = state.summaryMonth;
+  const selectedWins = summaryScope === "yearly" ? wins : wins.filter((w) => w.month === dm);
+  const selectedTotal = selectedWins.reduce((s, w) => s + w.amount, 0);
+  const cGoal = summaryScope === "yearly" ? state.goals[ygk(state.year)] : state.goals[gk(dm, state.year)];
+  const cEarned = selectedTotal;
+  const gPctRaw = cGoal ? (cEarned / cGoal) * 100 : 0;
+  const gPct = Math.min(gPctRaw, 100);
   const exceeded = cGoal && cEarned > cGoal;
+  const periodLabel = summaryScope === "yearly" ? String(state.year) : dm;
+  const goalTitle = periodLabel + " Goal";
+  const goalKey = summaryScope === "yearly" ? ygk(state.year) : gk(dm, state.year);
   let bestM = { m: "—", t: 0 };
   MONTHS.forEach((m) => { const v = wins.filter((w) => w.month === m).reduce((s, w) => s + w.amount, 0); if (v > bestM.t) bestM = { m, t: v }; });
   const bestMonth = bestM.t > 0 ? bestM.m + " (" + fmt(bestM.t) + ")" : "—";
   const srcMap: Record<string, number> = {};
-  wins.forEach((w) => { srcMap[w.source] = (srcMap[w.source] || 0) + w.amount; });
+  selectedWins.forEach((w) => { srcMap[w.source] = (srcMap[w.source] || 0) + w.amount; });
   let topSrc = { n: "—", t: 0 };
   Object.entries(srcMap).forEach(([n, v]) => { if (v > topSrc.t) topSrc = { n, t: v }; });
   const topSource = topSrc.t > 0 ? topSrc.n : "—";
@@ -440,7 +448,7 @@ export function render(): void {
   const gc = el("div", { style: { margin: "20px 20px 0", background: th.card, border: "1px solid " + th.border, borderRadius: "14px", padding: "18px" } });
   const gcTop = el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" } });
   const gcL = el("div", {});
-  gcL.appendChild(el("div", { style: { fontSize: "13px", fontWeight: "600", color: th.text } }, dm + " Goal"));
+  gcL.appendChild(el("div", { style: { fontSize: "13px", fontWeight: "600", color: th.text } }, goalTitle));
   if (cGoal) {
     const sub = el("div", { style: { fontSize: "12px", color: th.sub, marginTop: "2px" } });
     sub.textContent = fmt(cEarned) + " of " + fmt(cGoal);
@@ -448,18 +456,32 @@ export function render(): void {
     gcL.appendChild(sub);
   } else gcL.appendChild(el("div", { style: { fontSize: "12px", color: th.muted, marginTop: "2px" } }, "No goal set"));
 
-  const gcR = el("div", { style: { display: "flex", gap: "6px" } });
-  if (cGoal) gcR.appendChild(el("button", { style: { padding: "5px 10px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", cursor: "pointer", fontSize: "11px", color: th.accent, fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.confirm = { title: "Remove this goal?", detail: dm + " " + state.year + " goal — " + fmt(cGoal), message: "Your logged winnings stay; only the goal is removed.", confirmLabel: "Remove", onConfirm: () => { const g = { ...state.goals }; delete g[gk(dm, state.year)]; state.goals = g; save(); render(); } }; render(); } }, "Remove"));
-  gcR.appendChild(el("button", { style: { padding: "5px 12px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.input, cursor: "pointer", fontSize: "11px", color: th.sub, fontFamily: "'DM Sans',sans-serif", fontWeight: "500" }, onClick: () => { state.goalForm = { month: dm, target: cGoal ? String(cGoal) : "" }; state.editingGoalKey = cGoal ? gk(dm, state.year) : null; state.showGoalForm = !state.showGoalForm; render(); } }, cGoal ? "Edit" : "Set Goal"));
+  const gcR = el("div", { style: { display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" } });
+  const scopeSelect = mkDropdown(summaryScope === "yearly" ? "Year" : "Month", ["Month", "Year"], (v) => {
+    state.summaryScope = v === "Year" ? "yearly" : "monthly";
+    state.showGoalForm = false;
+    render();
+  }, th, { compact: true });
+  gcR.appendChild(scopeSelect);
+  if (summaryScope === "monthly") {
+    gcR.appendChild(mkDropdown(dm, MONTHS, (v) => {
+      state.summaryMonth = v;
+      state.activeMonth = v;
+      state.showGoalForm = false;
+      render();
+    }, th, { compact: true }));
+  }
+  if (cGoal) gcR.appendChild(el("button", { style: { padding: "5px 10px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", cursor: "pointer", fontSize: "11px", color: th.accent, fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.confirm = { title: "Remove this goal?", detail: goalTitle + " — " + fmt(cGoal), message: "Your logged winnings stay; only the goal is removed.", confirmLabel: "Remove", onConfirm: () => { const g = { ...state.goals }; delete g[goalKey]; state.goals = g; save(); render(); } }; render(); } }, "Remove"));
+  gcR.appendChild(el("button", { style: { padding: "5px 12px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.input, cursor: "pointer", fontSize: "11px", color: th.sub, fontFamily: "'DM Sans',sans-serif", fontWeight: "500" }, onClick: () => { state.goalForm = { month: summaryScope === "yearly" ? YEARLY_GOAL_LABEL : dm, target: cGoal ? String(cGoal) : "" }; state.editingGoalKey = cGoal ? goalKey : null; state.showGoalForm = !state.showGoalForm; render(); } }, cGoal ? "Edit" : "Set Goal"));
   gcTop.append(gcL, gcR);
   gc.appendChild(gcTop);
 
   // Progress bar
   const bar = el("div", { style: { width: "100%", height: "24px", background: th.barBg, borderRadius: "12px", overflow: "hidden", position: "relative" } });
   const fill = el("div", { style: { width: cGoal ? gPct + "%" : "0%", height: "100%", background: exceeded ? th.greenGrad : th.accentGrad, borderRadius: "12px", transition: "width .8s cubic-bezier(.4,0,.2,1)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: gPct > 15 ? "10px" : "0" } });
-  if (cGoal && gPct > 15) fill.appendChild(el("span", { style: { fontSize: "11px", fontWeight: "700", color: "#FFFCF7", textShadow: "0 1px 2px rgba(0,0,0,.2)" } }, Math.round(gPct) + "%"));
+  if (cGoal && gPct > 15) fill.appendChild(el("span", { style: { fontSize: "11px", fontWeight: "700", color: "#FFFCF7", textShadow: "0 1px 2px rgba(0,0,0,.2)" } }, Math.round(gPctRaw) + "%"));
   bar.appendChild(fill);
-  if (cGoal && gPct <= 15) bar.appendChild(el("span", { style: { position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", fontSize: "11px", fontWeight: "600", color: th.sub } }, Math.round(gPct) + "%"));
+  if (cGoal && gPct <= 15) bar.appendChild(el("span", { style: { position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", fontSize: "11px", fontWeight: "600", color: th.sub } }, Math.round(gPctRaw) + "%"));
   gc.appendChild(bar);
 
   // Mini month bars
@@ -470,7 +492,7 @@ export function render(): void {
     const p = g ? Math.min((e / g) * 100, 100) : 0;
     const hit = g && e >= g;
     const isA = m === dm;
-    const d = el("div", { style: { flex: "1 1 68px", minWidth: "58px", cursor: "pointer", textAlign: "center" }, onClick: () => { state.activeMonth = isA && state.activeMonth === m ? null : m; render(); } });
+    const d = el("div", { style: { flex: "1 1 68px", minWidth: "58px", cursor: "pointer", textAlign: "center" }, onClick: () => { state.summaryScope = "monthly"; state.summaryMonth = m; state.activeMonth = m; render(); } });
     d.appendChild(el("div", { style: { fontSize: "8px", color: isA ? th.text : th.muted, fontWeight: isA ? "600" : "400", marginBottom: "2px" } }, m));
     const b = el("div", { style: { height: "5px", background: th.barBg, borderRadius: "3px", overflow: "hidden" } });
     b.appendChild(el("div", { style: { width: g ? p + "%" : "0%", height: "100%", background: hit ? th.green : th.accent, borderRadius: "3px", transition: "width .5s ease" } }));
@@ -483,12 +505,18 @@ export function render(): void {
   if (state.showGoalForm) {
     const gf = el("div", { style: { marginTop: "14px", padding: "14px", background: th.input, borderRadius: "10px", animation: "fadeIn .2s ease" } });
     const row = el("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" } });
-    const mSel = mkSelect(state.goalForm.month, MONTHS, (v) => { state.goalForm.month = v; }, "Month", th);
+    const isYearlyGoalForm = state.goalForm.month === YEARLY_GOAL_LABEL;
+    const mSel = isYearlyGoalForm
+      ? el("div", {}, [
+        el("label", { style: { fontSize: "11px", color: th.sub, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", display: "block" } }, "Period"),
+        el("div", { style: { padding: "10px 12px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.card, fontSize: "14px", color: th.text, fontWeight: "700" } }, state.year + " yearly goal"),
+      ])
+      : mkSelect(state.goalForm.month, MONTHS, (v) => { state.goalForm.month = v; state.summaryMonth = v; }, "Month", th);
     const tInp = mkInput(state.goalForm.target, "500", (v) => { state.goalForm.target = v; }, "Target ($)", "number", th);
     row.append(mSel, tInp);
     gf.appendChild(row);
     const btns = el("div", { style: { display: "flex", gap: "8px" } });
-    btns.appendChild(el("button", { style: { flex: "1", padding: "10px", borderRadius: "8px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { const v = parseFloat(state.goalForm.target); if (isNaN(v) || v <= 0) return; state.goals[state.editingGoalKey || gk(state.goalForm.month, state.year)] = v; state.showGoalForm = false; state.editingGoalKey = null; save(); render(); } }, state.editingGoalKey ? "Update" : "Set Goal"));
+    btns.appendChild(el("button", { style: { flex: "1", padding: "10px", borderRadius: "8px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { const v = parseFloat(state.goalForm.target); if (isNaN(v) || v <= 0) return; const key = state.editingGoalKey || (state.goalForm.month === YEARLY_GOAL_LABEL ? ygk(state.year) : gk(state.goalForm.month, state.year)); state.goals[key] = v; state.showGoalForm = false; state.editingGoalKey = null; save(); render(); } }, state.editingGoalKey ? "Update" : "Set Goal"));
     btns.appendChild(el("button", { style: { padding: "10px 14px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", color: th.sub, fontSize: "12px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.showGoalForm = false; render(); } }, "Cancel"));
     gf.appendChild(btns);
     gc.appendChild(gf);
@@ -497,8 +525,8 @@ export function render(): void {
 
   // Stats
   const stats: { label: string; value: string | number; ac: string }[] = [
-    { label: "Total Earned", value: fmt(totalEarned), ac: th.accent },
-    { label: "Total Deals", value: wins.length, ac: th.sub },
+    { label: "Total Earned", value: fmt(selectedTotal), ac: th.accent },
+    { label: "Total Deals", value: selectedWins.length, ac: th.sub },
     { label: "Best Month", value: bestMonth, ac: state.dark ? "#C0724D" : "#A0522D" },
     { label: "Top Source", value: topSource, ac: state.dark ? "#DEB88A" : "#D4A574" },
   ];

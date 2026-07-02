@@ -1,4 +1,4 @@
-import { KEY, DARK_KEY, TAB_KEY, DEFAULT_SOURCES, MONTHS, OTHER_SOURCE, normalizeMonth } from "./constants";
+import { KEY, DARK_KEY, TAB_KEY, DEFAULT_SOURCES, MONTHS, OTHER_SOURCE, YEARLY_GOAL_LABEL, normalizeMonth } from "./constants";
 import type { State, PersistedData, Tab, Goals, Win } from "./types";
 import { cloudSave } from "./cloud";
 import { render } from "./render";
@@ -30,6 +30,8 @@ export const state: State = {
   editingId: null,
   sourceView: "yearly",
   sourceMonth: MONTHS[new Date().getMonth()],
+  summaryScope: "monthly",
+  summaryMonth: MONTHS[new Date().getMonth()],
   resetYear: String(new Date().getFullYear()),
   resetMonth: MONTHS[new Date().getMonth()],
   confirm: null,
@@ -65,8 +67,10 @@ function normalizeGoals(goals: Goals): Goals {
     if (splitAt === -1) return;
     const year = key.slice(0, splitAt);
     const yearNumber = Number(year);
-    const month = normalizeMonth(key.slice(splitAt + 1));
+    const rawPeriod = key.slice(splitAt + 1).trim();
+    const month = normalizeMonth(rawPeriod);
     if (!Number.isNaN(yearNumber) && month) out[gk(month, yearNumber)] = target;
+    if (!Number.isNaN(yearNumber) && rawPeriod.toLowerCase() === YEARLY_GOAL_LABEL.toLowerCase()) out[ygk(yearNumber)] = target;
   });
   return out;
 }
@@ -132,6 +136,9 @@ export function showToast(msg: string): void {
 
 /** Goal key for a given month/year. */
 export const gk = (m: string, y: number): string => y + "-" + m;
+
+/** Goal key for a full year. */
+export const ygk = (y: number): string => y + "-" + YEARLY_GOAL_LABEL;
 
 /** Wins for the currently selected year. */
 export const yw = () => state.wins.filter((w) => w.year === state.year);

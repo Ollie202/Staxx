@@ -1,5 +1,5 @@
-import { state, showToast, save } from "./state";
-import { monthIndex, normalizeMonth, OTHER_SOURCE } from "./constants";
+import { state, showToast, save, ygk } from "./state";
+import { monthIndex, normalizeMonth, OTHER_SOURCE, YEARLY_GOAL_LABEL } from "./constants";
 import { gid } from "./dom";
 import { render } from "./render";
 import type { Goals, Win } from "./types";
@@ -106,7 +106,8 @@ export function importCSV(): void {
     if (lower.startsWith("goal" + delim) || lower.startsWith("goal,") || lower.startsWith("goal;") || lower.startsWith("goal\t")) {
       const p = parseCsvLine(line, delim);
       if (p.length >= 4) {
-        const yr = parseInt(p[1]), mo = normalizeMonth(p[2].trim()), t = parseFloat(p[3]);
+        const yr = parseInt(p[1]), period = p[2].trim(), mo = normalizeMonth(period), t = parseFloat(p[3]);
+        if (!isNaN(yr) && !isNaN(t) && period.toLowerCase() === YEARLY_GOAL_LABEL.toLowerCase()) { ng[ygk(yr)] = t; gc++; continue; }
         if (!isNaN(yr) && !isNaN(t) && mo) { ng[yr + "-" + mo] = t; gc++; continue; }
       }
       sk++;

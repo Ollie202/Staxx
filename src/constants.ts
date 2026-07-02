@@ -26,6 +26,7 @@ export function monthIndex(value: string): number {
 export const CHART_TYPES = ["Bar", "Line", "Area", "Radar", "Pie"];
 
 export const OTHER_SOURCE = "Other";
+export const YEARLY_GOAL_LABEL = "Yearly";
 
 export const DEFAULT_SOURCES = [
   "Bounties", "Ambassadorships", "Content", "Dev", "Web3 Jobs",

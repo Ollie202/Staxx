@@ -496,14 +496,14 @@ export function render(): void {
 
   // Mini month bars
   const miniRow = el("div", { style: { display: "flex", gap: "3px", marginTop: "12px", flexWrap: "wrap" } });
-  MONTHS.forEach((m) => {
+  MONTHS.forEach((m, index) => {
     const g = state.goals[gk(m, state.year)];
     const e = wins.filter((w) => w.month === m).reduce((s, w) => s + w.amount, 0);
     const p = g ? Math.min((e / g) * 100, 100) : 0;
     const hit = g && e >= g;
     const isA = m === dm;
     const d = el("div", { style: { flex: "1 1 68px", minWidth: "58px", cursor: "pointer", textAlign: "center" }, onClick: () => { state.summaryScope = "monthly"; state.summaryMonth = m; state.activeMonth = m; render(); } });
-    d.appendChild(el("div", { style: { fontSize: "8px", color: isA ? th.text : th.muted, fontWeight: isA ? "600" : "400", marginBottom: "2px" } }, m));
+    d.appendChild(el("div", { style: { fontSize: "8px", color: isA ? th.text : th.muted, fontWeight: isA ? "600" : "400", marginBottom: "2px" } }, MONTH_ABBREVIATIONS[index] || m));
     const b = el("div", { style: { height: "5px", background: th.barBg, borderRadius: "3px", overflow: "hidden" } });
     b.appendChild(el("div", { style: { width: g ? p + "%" : "0%", height: "100%", background: hit ? th.green : th.accent, borderRadius: "3px", transition: "width .5s ease" } }));
     d.appendChild(b);

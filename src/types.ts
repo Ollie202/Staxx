@@ -67,6 +67,7 @@ export interface State {
   activeMonth: string | null;
   monthReport: string | null;
   yearReport: boolean;
+  chartBreakdownMonth: string | null;
   showSharePicker: boolean;
   winMonth: string | null;
   editingId: string | null;

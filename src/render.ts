@@ -1,7 +1,7 @@
 import { state, save, showToast, gk, ygk, yw, doAddSource, setTab } from "./state";
 import { LIGHT, DARK, type Theme } from "./theme";
 import type { Tab } from "./types";
-import { MONTHS, CHART_TYPES, OTHER_SOURCE, YEARLY_GOAL_LABEL, monthIndex } from "./constants";
+import { MONTHS, MONTH_ABBREVIATIONS, CHART_TYPES, OTHER_SOURCE, YEARLY_GOAL_LABEL, monthIndex } from "./constants";
 import { el, fmt, gid, $ } from "./dom";
 import { mkSelect, mkInput, mkPill, mkDropdown } from "./ui";
 import { renderChart } from "./chart";
@@ -64,6 +64,16 @@ function openYearReport(): void {
   state.monthReport = null;
   state.yearReport = true;
   state.showSharePicker = false;
+  render();
+}
+
+function openChartBreakdown(month: string): void {
+  state.chartBreakdownMonth = month;
+  render();
+}
+
+function closeChartBreakdown(): void {
+  state.chartBreakdownMonth = null;
   render();
 }
 
@@ -469,7 +479,7 @@ export function render(): void {
       state.activeMonth = v;
       state.showGoalForm = false;
       render();
-    }, th, { compact: true }));
+    }, th, { compact: true, labelFn: (month) => MONTH_ABBREVIATIONS[MONTHS.indexOf(month)] || month }));
   }
   if (cGoal) gcR.appendChild(el("button", { style: { padding: "5px 10px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", cursor: "pointer", fontSize: "11px", color: th.accent, fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.confirm = { title: "Remove this goal?", detail: goalTitle + " — " + fmt(cGoal), message: "Your logged winnings stay; only the goal is removed.", confirmLabel: "Remove", onConfirm: () => { const g = { ...state.goals }; delete g[goalKey]; state.goals = g; save(); render(); } }; render(); } }, "Remove"));
   gcR.appendChild(el("button", { style: { padding: "5px 12px", borderRadius: "8px", border: "1px solid " + th.inputBorder, background: th.input, cursor: "pointer", fontSize: "11px", color: th.sub, fontFamily: "'DM Sans',sans-serif", fontWeight: "500" }, onClick: () => { state.goalForm = { month: summaryScope === "yearly" ? YEARLY_GOAL_LABEL : dm, target: cGoal ? String(cGoal) : "" }; state.editingGoalKey = cGoal ? goalKey : null; state.showGoalForm = !state.showGoalForm; render(); } }, cGoal ? "Edit" : "Set Goal"));
@@ -736,12 +746,13 @@ export function render(): void {
   if (state.showProfileSetup && state.user) app.appendChild(renderProfileSetupModal(th));
   if (state.showSharePicker) app.appendChild(renderSharePickerModal(th));
   if (state.monthReport || state.yearReport) app.appendChild(renderMonthReportModal(th));
+  if (state.chartBreakdownMonth) app.appendChild(renderChartBreakdownModal(th));
 
   // Confirmation popup for any destructive action (delete / remove / reset)
   if (state.confirm) app.appendChild(renderConfirm(th));
 
   // Render chart
-  renderChart(th, wins, (month) => { openMonthReport(month); });
+  renderChart(th, wins, (month) => { openChartBreakdown(month); });
   requestAnimationFrame(() => {
     drawMonthShareCard(th);
   });
@@ -832,6 +843,92 @@ function renderSharePickerModal(th: Theme): HTMLElement {
     grid.appendChild(btn);
   });
   card.appendChild(grid);
+  ov.appendChild(card);
+  return ov;
+}
+
+function renderChartBreakdownModal(th: Theme): HTMLElement {
+  const month = state.chartBreakdownMonth || MONTHS[new Date().getMonth()];
+  const report = monthReportData(month);
+  const close = () => closeChartBreakdown();
+  const ov = el("div", { style: { position: "fixed", inset: "0", background: "rgba(0,0,0,.56)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "208", padding: "20px", animation: "fadeIn .2s ease" } });
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  const card = el("div", { style: { width: "min(760px,100%)", maxHeight: "92vh", overflowY: "auto", background: th.card, border: "1px solid " + th.border, borderRadius: "22px", padding: "22px", boxShadow: "0 20px 60px rgba(0,0,0,.35)" } });
+  const top = el("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", marginBottom: "18px" } });
+  const title = el("div", {});
+  title.appendChild(el("div", { style: { fontSize: "11px", color: th.sub, fontWeight: "800", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" } }, "Monthly breakdown"));
+  title.appendChild(el("h2", { style: { fontFamily: "'Playfair Display',serif", fontSize: "30px", lineHeight: "1.1", color: th.text, margin: "0" } }, month + " " + state.year));
+  title.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "7px 0 0", lineHeight: "1.45" } }, report.wins.length + " deal" + (report.wins.length === 1 ? "" : "s") + " logged for this month."));
+  top.appendChild(title);
+  top.appendChild(el("button", { type: "button", title: "Close", style: { width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: "transparent", color: th.sub, cursor: "pointer", fontSize: "20px", lineHeight: "1", flexShrink: "0" }, onClick: () => close() }, "×"));
+  card.appendChild(top);
+
+  const summary = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: "10px", marginBottom: "16px" } });
+  [
+    ["Total earned", fmt(report.total)],
+    ["Total deals", String(report.wins.length)],
+    ["Top source", report.topSource],
+    ["Biggest win", report.biggestWin ? fmt(report.biggestWin.amount) : "—"],
+  ].forEach(([label, value]) => {
+    const box = el("div", { style: { background: th.input, border: "1px solid " + th.border, borderRadius: "14px", padding: "13px 14px" } });
+    box.appendChild(el("div", { style: { fontSize: "10px", color: th.sub, textTransform: "uppercase", letterSpacing: "1px", fontWeight: "800", marginBottom: "6px" } }, label));
+    box.appendChild(el("div", { style: { fontSize: "17px", color: th.accent, fontWeight: "800", wordBreak: "break-word" } }, value));
+    summary.appendChild(box);
+  });
+  card.appendChild(summary);
+
+  if (report.goal) {
+    const pct = Math.round((report.total / report.goal) * 100);
+    const fillPct = Math.min(pct, 100);
+    const goal = el("div", { style: { background: th.input, border: "1px solid " + th.border, borderRadius: "14px", padding: "14px", marginBottom: "16px" } });
+    const row = el("div", { style: { display: "flex", justifyContent: "space-between", gap: "12px", marginBottom: "9px", flexWrap: "wrap" } });
+    row.appendChild(el("span", { style: { fontSize: "12px", fontWeight: "800", color: th.text } }, "Goal status · " + pct + "%"));
+    row.appendChild(el("span", { style: { fontSize: "12px", fontWeight: "700", color: th.sub } }, fmt(report.total) + " of " + fmt(report.goal)));
+    goal.appendChild(row);
+    const bar = el("div", { style: { width: "100%", height: "12px", background: th.barBg, borderRadius: "999px", overflow: "hidden" } });
+    bar.appendChild(el("div", { style: { width: fillPct + "%", height: "100%", background: report.total >= report.goal ? th.greenGrad : th.accentGrad, borderRadius: "999px" } }));
+    goal.appendChild(bar);
+    card.appendChild(goal);
+  }
+
+  const sources = el("div", { style: { marginBottom: "16px" } });
+  sources.appendChild(el("h3", { style: { fontSize: "13px", color: th.text, margin: "0 0 10px", fontWeight: "800" } }, "Source breakdown"));
+  if (report.sources.length === 0) {
+    sources.appendChild(el("div", { style: { padding: "18px", borderRadius: "14px", border: "1px solid " + th.border, background: th.input, color: th.muted, fontSize: "12px", textAlign: "center" } }, "No source data for this month yet."));
+  } else {
+    const max = report.sources[0]?.[1] || report.total || 1;
+    report.sources.forEach(([source, amount]) => {
+      const pct = report.total ? Math.round((amount / report.total) * 100) : 0;
+      const row = el("div", { style: { padding: "12px 0", borderBottom: "1px solid " + th.border } });
+      const line = el("div", { style: { display: "flex", justifyContent: "space-between", gap: "12px", marginBottom: "7px", alignItems: "baseline" } });
+      line.appendChild(el("span", { style: { fontSize: "13px", fontWeight: "800", color: th.text } }, source));
+      line.appendChild(el("span", { style: { fontSize: "12px", fontWeight: "800", color: th.accent, whiteSpace: "nowrap" } }, fmt(amount) + " · " + pct + "%"));
+      row.appendChild(line);
+      const bar = el("div", { style: { height: "8px", borderRadius: "999px", overflow: "hidden", background: th.barBg } });
+      bar.appendChild(el("div", { style: { width: Math.max(4, (amount / max) * 100) + "%", height: "100%", borderRadius: "999px", background: th.sc[source] || th.accent } }));
+      row.appendChild(bar);
+      sources.appendChild(row);
+    });
+  }
+  card.appendChild(sources);
+
+  const winsList = el("div", {});
+  winsList.appendChild(el("h3", { style: { fontSize: "13px", color: th.text, margin: "0 0 10px", fontWeight: "800" } }, "Deals"));
+  const sortedWins = [...report.wins].sort((a, b) => b.amount - a.amount || a.project.localeCompare(b.project));
+  if (sortedWins.length === 0) {
+    winsList.appendChild(el("div", { style: { padding: "18px", borderRadius: "14px", border: "1px solid " + th.border, background: th.input, color: th.muted, fontSize: "12px", textAlign: "center" } }, "No deals logged for " + month + " yet."));
+  } else {
+    sortedWins.forEach((win) => {
+      const row = el("div", { style: { display: "grid", gridTemplateColumns: "1fr auto", gap: "12px", alignItems: "center", padding: "12px 0", borderBottom: "1px solid " + th.border } });
+      const left = el("div", {});
+      left.appendChild(el("div", { style: { fontSize: "13px", color: th.text, fontWeight: "800", marginBottom: "4px", wordBreak: "break-word" } }, win.project));
+      left.appendChild(el("div", { style: { fontSize: "11px", color: th.sub } }, win.source || OTHER_SOURCE));
+      row.appendChild(left);
+      row.appendChild(el("div", { style: { fontSize: "14px", color: th.accent, fontWeight: "900", whiteSpace: "nowrap" } }, fmt(win.amount)));
+      winsList.appendChild(row);
+    });
+  }
+  card.appendChild(winsList);
   ov.appendChild(card);
   return ov;
 }

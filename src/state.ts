@@ -25,6 +25,7 @@ export const state: State = {
   activeMonth: null,
   monthReport: null,
   yearReport: false,
+  chartBreakdownMonth: null,
   showSharePicker: false,
   winMonth: null,
   editingId: null,

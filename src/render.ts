@@ -386,9 +386,7 @@ export function render(): void {
   const exceeded = cGoal && cEarned > cGoal;
   const goalTitle = summaryScope === "yearly" ? state.year + " Yearly Goal" : dm + " Goal";
   const goalKey = summaryScope === "yearly" ? ygk(state.year) : gk(dm, state.year);
-  let bestM = { m: "—", t: 0 };
-  MONTHS.forEach((m) => { const v = wins.filter((w) => w.month === m).reduce((s, w) => s + w.amount, 0); if (v > bestM.t) bestM = { m, t: v }; });
-  const bestMonth = bestM.t > 0 ? bestM.m + " (" + fmt(bestM.t) + ")" : "—";
+  const monthlyAverage = wins.length ? fmt(wins.reduce((s, w) => s + w.amount, 0) / MONTHS.length) : "—";
   const srcMap: Record<string, number> = {};
   selectedWins.forEach((w) => { srcMap[w.source] = (srcMap[w.source] || 0) + w.amount; });
   let topSrc = { n: "—", t: 0 };
@@ -535,7 +533,7 @@ export function render(): void {
   const stats: { label: string; value: string | number; ac: string }[] = [
     { label: "Total Earned", value: fmt(selectedTotal), ac: th.accent },
     { label: "Total Deals", value: selectedWins.length, ac: th.sub },
-    { label: "Best Month", value: bestMonth, ac: state.dark ? "#C0724D" : "#A0522D" },
+    { label: "Monthly Average", value: monthlyAverage, ac: state.dark ? "#C0724D" : "#A0522D" },
     { label: "Top Source", value: topSource, ac: state.dark ? "#DEB88A" : "#D4A574" },
   ];
   const sg = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: "10px", padding: "18px 20px 0" } });

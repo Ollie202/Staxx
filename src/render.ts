@@ -22,7 +22,7 @@ function monthReportData(month: string) {
   const topSource = sources[0]?.[0] || "None yet";
   const biggestWin = [...wins].sort((a, b) => b.amount - a.amount)[0];
   const goal = state.goals[gk(month, state.year)] || 0;
-  const goalPct = goal ? Math.min(Math.round((total / goal) * 100), 100) : 0;
+  const goalPct = goal ? Math.round((total / goal) * 100) : 0;
   return { wins, total, sources, topSource, biggestWin, goal, goalPct };
 }
 
@@ -35,7 +35,7 @@ function yearReportData() {
   const topSource = sources[0]?.[0] || "None yet";
   const biggestWin = [...wins].sort((a, b) => b.amount - a.amount)[0];
   const goal = MONTHS.reduce((sum, month) => sum + (state.goals[gk(month, state.year)] || 0), 0);
-  const goalPct = goal ? Math.min(Math.round((total / goal) * 100), 100) : 0;
+  const goalPct = goal ? Math.round((total / goal) * 100) : 0;
   return { wins, total, sources, topSource, biggestWin, goal, goalPct };
 }
 
@@ -135,7 +135,7 @@ function downloadShareCard(): void {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  showToast("Square report downloaded");
+  showToast("Report downloaded");
 }
 
 function canvasPngFile(): Promise<File | null> {
@@ -206,27 +206,20 @@ function canvasText(ctx: CanvasRenderingContext2D, text: string, x: number, y: n
   return y + Math.max(lines, 1) * lineHeight;
 }
 
-function drawGoalBurst(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = 5;
-  ctx.lineCap = "round";
-  const rays = [
-    [0, -42, 0, -22], [31, -30, 16, -15], [44, 0, 24, 0],
-    [30, 30, 15, 15], [0, 42, 0, 22], [-30, 30, -15, 15],
-  ];
-  rays.forEach(([x1, y1, x2, y2]) => {
-    ctx.beginPath();
-    ctx.moveTo(x + x1, y + y1);
-    ctx.lineTo(x + x2, y + y2);
-    ctx.stroke();
-  });
-  ctx.globalAlpha = 0.34;
-  ctx.beginPath();
-  ctx.arc(x, y, 34, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+function fitCanvasText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let out = text;
+  while (out.length > 1 && ctx.measureText(out + "...").width > maxWidth) {
+    out = out.slice(0, -1);
+  }
+  return out.trimEnd() + "...";
+}
+
+function compactSourceRows(sources: [string, number][]): [string, number][] {
+  if (sources.length <= 5) return sources;
+  const visible = sources.slice(0, 5);
+  const rest = sources.slice(5).reduce((sum, [, amount]) => sum + amount, 0);
+  return [...visible, ["Other sources", rest]];
 }
 
 function drawMonthShareCard(th: Theme): void {
@@ -314,29 +307,40 @@ function drawMonthShareCard(th: Theme): void {
     drawRoundRect(ctx, barX, barY, goalFillWidth, barH, 12);
     ctx.fill();
   }
-  if (exceededGoal) drawGoalBurst(ctx, barX + barW, barY + barH / 2, th.green);
+
+  const rows = compactSourceRows(report.sources);
+  const denseSourceRows = rows.length > 4;
+  const sourceHeadingY = barY + (denseSourceRows ? 68 : 80);
+  const sourceRowStart = barY + (denseSourceRows ? 108 : 125);
+  const sourceRowGap = denseSourceRows ? 47 : 62;
+  const sourceNameSize = denseSourceRows ? 22 : 28;
+  const sourceValueSize = denseSourceRows ? 20 : 25;
+  const sourceBarHeight = denseSourceRows ? 12 : 16;
+  const sourceBarOffset = denseSourceRows ? 16 : 20;
+  const sourceNameWidth = denseSourceRows ? 430 : 520;
 
   ctx.fillStyle = th.sub;
   ctx.font = "700 24px 'DM Sans', Arial, sans-serif";
-  ctx.fillText("SOURCE BREAKDOWN", 108, barY + 80);
+  ctx.fillText("SOURCE BREAKDOWN", 108, sourceHeadingY);
 
-  const sourceMax = report.sources[0]?.[1] || report.total || 1;
-  report.sources.slice(0, 4).forEach(([src, amount], index) => {
-    const y = barY + 125 + index * 62;
-    const pct = Math.max(0.06, amount / sourceMax);
+  const sourceMax = rows[0]?.[1] || report.total || 1;
+  rows.forEach(([src, amount], index) => {
+    const y = sourceRowStart + index * sourceRowGap;
+    const sourcePct = report.total ? Math.round((amount / report.total) * 100) : 0;
+    const barPct = Math.max(0.06, amount / sourceMax);
     ctx.fillStyle = th.text;
-    ctx.font = "700 28px 'DM Sans', Arial, sans-serif";
-    ctx.fillText(src, 108, y);
+    ctx.font = `700 ${sourceNameSize}px 'DM Sans', Arial, sans-serif`;
+    ctx.fillText(fitCanvasText(ctx, src, sourceNameWidth), 108, y);
     ctx.fillStyle = th.sub;
-    ctx.font = "600 25px 'DM Sans', Arial, sans-serif";
+    ctx.font = `600 ${sourceValueSize}px 'DM Sans', Arial, sans-serif`;
     ctx.textAlign = "right";
-    ctx.fillText(fmt(amount), 972, y);
+    ctx.fillText(fmt(amount) + " · " + sourcePct + "%", 972, y);
     ctx.textAlign = "left";
     ctx.fillStyle = th.barBg;
-    drawRoundRect(ctx, 108, y + 20, 864, 16, 10);
+    drawRoundRect(ctx, 108, y + sourceBarOffset, 864, sourceBarHeight, 10);
     ctx.fill();
     ctx.fillStyle = th.sc[src] || th.accent;
-    drawRoundRect(ctx, 108, y + 20, 864 * pct, 16, 10);
+    drawRoundRect(ctx, 108, y + sourceBarOffset, 864 * barPct, sourceBarHeight, 10);
     ctx.fill();
   });
 
@@ -349,9 +353,10 @@ function drawMonthShareCard(th: Theme): void {
   const foot = "Built with Staxx";
   ctx.fillStyle = th.sub;
   ctx.font = "600 26px 'DM Sans', Arial, sans-serif";
-  ctx.fillText(foot, 108, 950);
+  const footerY = denseSourceRows ? 985 : 950;
+  ctx.fillText(foot, 108, footerY);
   ctx.textAlign = "right";
-  ctx.fillText("@Staxx", 972, 950);
+  ctx.fillText("@Staxx", 972, footerY);
   ctx.textAlign = "left";
 }
 

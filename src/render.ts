@@ -1091,7 +1091,7 @@ function renderProfile(th: Theme): HTMLElement {
   const reset = card("Reset progress");
   reset.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 12px", lineHeight: "1.5" } }, "Clear one month or a full year only when you need to. Your account, profile, and sources stay untouched."));
   if (!state.showResetPanel) {
-    reset.appendChild(el("button", { style: { width: "100%", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.text, fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.showResetPanel = true; render(); } }, "Open reset options"));
+    reset.appendChild(el("button", { style: { width: "100%", padding: "11px", borderRadius: "10px", border: "1px solid " + th.inputBorder, background: th.input, color: th.sub, fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.showResetPanel = true; render(); } }, "Show reset options"));
   } else {
     const yearOptions = resetYearOptions();
     if (!yearOptions.includes(state.resetYear)) state.resetYear = yearOptions[0] || String(state.year);

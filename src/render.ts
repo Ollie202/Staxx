@@ -386,7 +386,9 @@ export function render(): void {
   const exceeded = cGoal && cEarned > cGoal;
   const goalTitle = summaryScope === "yearly" ? state.year + " Yearly Goal" : dm + " Goal";
   const goalKey = summaryScope === "yearly" ? ygk(state.year) : gk(dm, state.year);
-  const monthlyAverage = wins.length ? fmt(wins.reduce((s, w) => s + w.amount, 0) / MONTHS.length) : "—";
+  const monthsWithEarnings = new Set(wins.map((w) => w.month)).size;
+  const monthlyAverage = monthsWithEarnings ? fmt(wins.reduce((s, w) => s + w.amount, 0) / monthsWithEarnings) : "—";
+  const totalEarnedLabel = summaryScope === "yearly" ? "Total Earned (" + state.year + ")" : "Total Earned (" + (MONTH_ABBREVIATIONS[MONTHS.indexOf(dm)] || dm) + ")";
   const srcMap: Record<string, number> = {};
   selectedWins.forEach((w) => { srcMap[w.source] = (srcMap[w.source] || 0) + w.amount; });
   let topSrc = { n: "—", t: 0 };
@@ -531,7 +533,7 @@ export function render(): void {
 
   // Stats
   const stats: { label: string; value: string | number; ac: string }[] = [
-    { label: "Total Earned", value: fmt(selectedTotal), ac: th.accent },
+    { label: totalEarnedLabel, value: fmt(selectedTotal), ac: th.accent },
     { label: "Total Deals", value: selectedWins.length, ac: th.sub },
     { label: "Monthly Average", value: monthlyAverage, ac: state.dark ? "#C0724D" : "#A0522D" },
     { label: "Top Source", value: topSource, ac: state.dark ? "#DEB88A" : "#D4A574" },
@@ -1112,9 +1114,23 @@ function renderProfile(th: Theme): HTMLElement {
 
   // About
   const about = card("About");
-  about.appendChild(el("div", { style: { fontSize: "14px", fontWeight: "700", color: th.text, fontFamily: "'Playfair Display',serif" } }, "Staxxs"));
-  about.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "4px 0 0", lineHeight: "1.5" } }, "Track your monthly wins, set earning goals, and watch your bags stack up."));
-  about.appendChild(el("div", { style: { fontSize: "11px", color: th.muted, marginTop: "8px" } }, "v1.0.0"));
+  about.appendChild(el("div", { style: { fontSize: "18px", fontWeight: "800", color: th.text, fontFamily: "'Playfair Display',serif", marginBottom: "6px" } }, "Staxxs"));
+  about.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 14px", lineHeight: "1.6", maxWidth: "680px" } }, "Staxxs is a simple earnings tracker for logging wins, watching monthly progress, and keeping your goals visible without turning the whole thing into accounting homework."));
+  const aboutGrid = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: "10px", marginBottom: "14px" } });
+  [
+    { title: "Track wins", body: "Log each earning with its month, amount, and source so your progress stays easy to scan." },
+    { title: "Set goals", body: "Create monthly or yearly targets, then see how close you are in real time." },
+    { title: "Share progress", body: "Turn your month or year into a clean share card built for quick screenshots and downloads." },
+    { title: "Sync safely", body: state.user ? "Your data is linked to your signed-in account and synced across devices." : "Sign in when you are ready to back up your local data and sync it across devices." },
+  ].forEach((item) => {
+    const mini = el("div", { style: { border: "1px solid " + th.border, background: th.input, borderRadius: "10px", padding: "12px" } });
+    mini.appendChild(el("div", { style: { fontSize: "12px", fontWeight: "800", color: th.text, marginBottom: "4px" } }, item.title));
+    mini.appendChild(el("p", { style: { fontSize: "11px", color: th.sub, margin: "0", lineHeight: "1.5" } }, item.body));
+    aboutGrid.appendChild(mini);
+  });
+  about.appendChild(aboutGrid);
+  about.appendChild(el("p", { style: { fontSize: "11px", color: th.muted, margin: "0", lineHeight: "1.5" } }, "Built for creators, sellers, freelancers, and anyone who wants a cleaner way to see what they made over time."));
+  about.appendChild(el("div", { style: { fontSize: "11px", color: th.muted, marginTop: "10px" } }, "Version 1.0.0"));
   wrap.appendChild(about);
 
   return wrap;

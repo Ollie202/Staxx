@@ -77,6 +77,7 @@ export interface State {
   summaryMonth: string;
   resetYear: string;
   resetMonth: string;
+  showResetPanel: boolean;
   confirm: ConfirmDialog | null;
   toast: string | null;
   editingGoalKey: string | null;

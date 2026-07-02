@@ -128,6 +128,7 @@ function confirmResetProgress(scope: "month" | "year"): void {
         MONTHS.forEach((m) => { delete state.goals[gk(m, year)]; });
         delete state.goals[ygk(year)];
       }
+      state.showResetPanel = false;
       save();
       render();
       showToast("Reset " + period);
@@ -1088,33 +1089,40 @@ function renderProfile(th: Theme): HTMLElement {
 
   // Reset progress
   const reset = card("Reset progress");
-  reset.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 12px", lineHeight: "1.5" } }, "Clear one month or a full year. Your account, profile, and sources stay untouched."));
-  const yearOptions = resetYearOptions();
-  if (!yearOptions.includes(state.resetYear)) state.resetYear = yearOptions[0] || String(state.year);
-  const periodOptions = [YEARLY_GOAL_LABEL, ...MONTHS];
-  if (!periodOptions.includes(state.resetMonth)) state.resetMonth = MONTHS[new Date().getMonth()];
-  const selectedYear = Number(state.resetYear);
-  const resetWholeYear = state.resetMonth === YEARLY_GOAL_LABEL;
-  const summary = resetSummary(selectedYear, resetWholeYear ? undefined : state.resetMonth);
-  const periodText = resetWholeYear ? String(selectedYear) : state.resetMonth + " " + selectedYear;
-  const resetGrid = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: "10px", marginBottom: "12px" } });
-  resetGrid.append(
-    mkSelect(state.resetYear, yearOptions, (v) => { state.resetYear = v; render(); }, "Year", th),
-    el("div", {}, [
-      el("label", { style: { fontSize: "11px", color: th.sub, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", display: "block" } }, "Period"),
-      mkDropdown(state.resetMonth, periodOptions, (v) => { state.resetMonth = v; render(); }, th, {
-        labelFn: (value) => value === YEARLY_GOAL_LABEL ? "Full year" : MONTH_ABBREVIATIONS[MONTHS.indexOf(value)] || value,
-      }),
-    ]),
-  );
-  reset.appendChild(resetGrid);
-  const resetSummaryText = summary.wins + " win" + (summary.wins === 1 ? "" : "s") + " · " + fmt(summary.total) + " · " + summary.goals + " goal" + (summary.goals === 1 ? "" : "s");
-  reset.appendChild(el("div", { style: { border: "1px solid " + th.border, background: th.input, borderRadius: "10px", padding: "10px 12px", marginBottom: "12px", display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "center", flexWrap: "wrap" } }, [
-    el("span", { style: { fontSize: "12px", color: th.text, fontWeight: "800" } }, periodText),
-    el("span", { style: { fontSize: "12px", color: th.sub, fontWeight: "700" } }, resetSummaryText),
-  ]));
-  const disabledReset = summary.wins === 0 && summary.goals === 0;
-  reset.appendChild(el("button", { disabled: disabledReset, style: { width: "100%", padding: "11px", borderRadius: "10px", border: "1px solid " + th.danger, background: disabledReset ? "transparent" : th.danger + "18", color: disabledReset ? th.muted : th.danger, fontSize: "12px", fontWeight: "800", cursor: disabledReset ? "default" : "pointer", fontFamily: "'DM Sans',sans-serif", opacity: disabledReset ? ".55" : "1" }, onClick: () => { if (!disabledReset) confirmResetProgress(resetWholeYear ? "year" : "month"); } }, "Reset selected period"));
+  reset.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 12px", lineHeight: "1.5" } }, "Clear one month or a full year only when you need to. Your account, profile, and sources stay untouched."));
+  if (!state.showResetPanel) {
+    reset.appendChild(el("button", { style: { width: "100%", padding: "11px", borderRadius: "10px", border: "1px solid " + th.danger, background: "transparent", color: th.danger, fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.showResetPanel = true; render(); } }, "Open reset options"));
+  } else {
+    const yearOptions = resetYearOptions();
+    if (!yearOptions.includes(state.resetYear)) state.resetYear = yearOptions[0] || String(state.year);
+    const periodOptions = [YEARLY_GOAL_LABEL, ...MONTHS];
+    if (!periodOptions.includes(state.resetMonth)) state.resetMonth = MONTHS[new Date().getMonth()];
+    const selectedYear = Number(state.resetYear);
+    const resetWholeYear = state.resetMonth === YEARLY_GOAL_LABEL;
+    const summary = resetSummary(selectedYear, resetWholeYear ? undefined : state.resetMonth);
+    const periodText = resetWholeYear ? String(selectedYear) : state.resetMonth + " " + selectedYear;
+    const resetGrid = el("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: "10px", marginBottom: "12px", animation: "fadeIn .18s ease" } });
+    resetGrid.append(
+      mkSelect(state.resetYear, yearOptions, (v) => { state.resetYear = v; render(); }, "Year", th),
+      el("div", {}, [
+        el("label", { style: { fontSize: "11px", color: th.sub, textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "4px", display: "block" } }, "Period"),
+        mkDropdown(state.resetMonth, periodOptions, (v) => { state.resetMonth = v; render(); }, th, {
+          labelFn: (value) => value === YEARLY_GOAL_LABEL ? "Full year" : MONTH_ABBREVIATIONS[MONTHS.indexOf(value)] || value,
+        }),
+      ]),
+    );
+    reset.appendChild(resetGrid);
+    const resetSummaryText = summary.wins + " win" + (summary.wins === 1 ? "" : "s") + " · " + fmt(summary.total) + " · " + summary.goals + " goal" + (summary.goals === 1 ? "" : "s");
+    reset.appendChild(el("div", { style: { border: "1px solid " + th.border, background: th.input, borderRadius: "10px", padding: "10px 12px", marginBottom: "12px", display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "center", flexWrap: "wrap" } }, [
+      el("span", { style: { fontSize: "12px", color: th.text, fontWeight: "800" } }, periodText),
+      el("span", { style: { fontSize: "12px", color: th.sub, fontWeight: "700" } }, resetSummaryText),
+    ]));
+    const disabledReset = summary.wins === 0 && summary.goals === 0;
+    const resetActions = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
+    resetActions.appendChild(el("button", { disabled: disabledReset, style: { flex: "1", minWidth: "160px", padding: "11px", borderRadius: "10px", border: "1px solid " + th.danger, background: disabledReset ? "transparent" : th.danger + "18", color: disabledReset ? th.muted : th.danger, fontSize: "12px", fontWeight: "800", cursor: disabledReset ? "default" : "pointer", fontFamily: "'DM Sans',sans-serif", opacity: disabledReset ? ".55" : "1" }, onClick: () => { if (!disabledReset) confirmResetProgress(resetWholeYear ? "year" : "month"); } }, "Reset selected period"));
+    resetActions.appendChild(el("button", { style: { padding: "11px 16px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.sub, fontSize: "12px", fontWeight: "700", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.showResetPanel = false; render(); } }, "Hide"));
+    reset.appendChild(resetActions);
+  }
   wrap.appendChild(reset);
 
   // About

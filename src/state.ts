@@ -35,6 +35,7 @@ export const state: State = {
   summaryMonth: MONTHS[new Date().getMonth()],
   resetYear: String(new Date().getFullYear()),
   resetMonth: MONTHS[new Date().getMonth()],
+  showResetPanel: false,
   confirm: null,
   toast: null,
   editingGoalKey: null,

@@ -10,7 +10,7 @@ import { signInGoogle, signInEmail, signUpEmail, signOut } from "./auth";
 import { cloudEnabled } from "./supabaseClient";
 
 // Logo lives in public/ so it's copied to the deploy root; BASE_URL keeps the
-// path correct on both the Vercel root and the GitHub Pages /Staxx/ subpath.
+// path correct on both the Vercel root and the GitHub Pages /Staxxs/ subpath.
 const LOGO_URL = import.meta.env.BASE_URL + "favicon-192.png";
 
 function monthReportData(month: string) {
@@ -142,7 +142,7 @@ function downloadShareCard(): void {
   const report = activeShareReport();
   const a = document.createElement("a");
   a.href = canvas.toDataURL("image/png");
-  a.download = "Staxx-" + report.fileLabel + ".png";
+  a.download = "Staxxs-" + report.fileLabel + ".png";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -156,14 +156,14 @@ function canvasPngFile(): Promise<File | null> {
   return new Promise((resolve) => {
     canvas.toBlob((blob) => {
       if (!blob) { resolve(null); return; }
-      resolve(new File([blob], "Staxx-" + report.fileLabel + ".png", { type: "image/png" }));
+      resolve(new File([blob], "Staxxs-" + report.fileLabel + ".png", { type: "image/png" }));
     }, "image/png");
   });
 }
 
 async function shareReport(): Promise<void> {
   const report = activeShareReport();
-  const text = "I made " + fmt(report.total) + " " + report.periodText + " on Staxx.";
+  const text = "I made " + fmt(report.total) + " " + report.periodText + " on Staxxs.";
   const file = await canvasPngFile();
   const webShare = navigator as Navigator & {
     canShare?: (data: ShareData & { files?: File[] }) => boolean;
@@ -171,7 +171,7 @@ async function shareReport(): Promise<void> {
   };
   if (file && webShare.share && (!webShare.canShare || webShare.canShare({ files: [file] }))) {
     try {
-      await webShare.share({ title: "Staxx " + report.title + " report", text, files: [file] });
+      await webShare.share({ title: "Staxxs " + report.title + " report", text, files: [file] });
       return;
     } catch (error) {
       if ((error as Error).name === "AbortError") return;
@@ -236,7 +236,7 @@ function compactSourceRows(sources: [string, number][]): [string, number][] {
 function drawMonthShareCard(th: Theme): void {
   if (!state.monthReport && !state.yearReport) return;
   const canvas = document.getElementById("monthShareCanvas") as HTMLCanvasElement | null;
-  const logo = document.querySelector<HTMLImageElement>('img[alt="Staxx logo"]');
+  const logo = document.querySelector<HTMLImageElement>('img[alt="Staxxs logo"]');
   if (!canvas) return;
   const report = activeShareReport();
   const ctx = canvas.getContext("2d");
@@ -269,7 +269,7 @@ function drawMonthShareCard(th: Theme): void {
   }
   ctx.fillStyle = th.text;
   ctx.font = "700 42px Georgia, serif";
-  ctx.fillText("Staxx", 180, 149);
+  ctx.fillText("Staxxs", 180, 149);
   ctx.fillStyle = th.sub;
   ctx.font = "800 32px 'DM Sans', Arial, sans-serif";
   ctx.textAlign = "right";
@@ -361,13 +361,13 @@ function drawMonthShareCard(th: Theme): void {
     ctx.fillText("No source data yet", 108, barY + 135);
   }
 
-  const foot = "Built with Staxx";
+  const foot = "Built with Staxxs";
   ctx.fillStyle = th.sub;
   ctx.font = "600 26px 'DM Sans', Arial, sans-serif";
   const footerY = denseSourceRows ? 985 : 950;
   ctx.fillText(foot, 108, footerY);
   ctx.textAlign = "right";
-  ctx.fillText("@Staxx", 972, footerY);
+  ctx.fillText("@Staxxs", 972, footerY);
   ctx.textAlign = "left";
 }
 
@@ -429,8 +429,8 @@ export function render(): void {
   const hdr = el("div", { style: { padding: "28px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" } });
   const hdrL = el("div", {});
   const brand = el("button", { type: "button", style: { display: "flex", alignItems: "center", gap: "11px", padding: "0", border: "none", background: "transparent", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }, title: "Go home", onClick: () => { setTab("home"); window.scrollTo({ top: 0 }); render(); } });
-  brand.appendChild(el("img", { src: LOGO_URL, alt: "Staxx logo", width: "30", height: "30", style: { width: "30px", height: "30px", borderRadius: "8px", flexShrink: "0", boxShadow: "0 1px 4px rgba(0,0,0,.12)" } }));
-  brand.appendChild(el("h1", { style: { fontFamily: "'Playfair Display',serif", fontSize: "26px", fontWeight: "700", margin: "0", color: th.text, letterSpacing: "-0.5px", lineHeight: "1" } }, "Staxx"));
+  brand.appendChild(el("img", { src: LOGO_URL, alt: "Staxxs logo", width: "30", height: "30", style: { width: "30px", height: "30px", borderRadius: "8px", flexShrink: "0", boxShadow: "0 1px 4px rgba(0,0,0,.12)" } }));
+  brand.appendChild(el("h1", { style: { fontFamily: "'Playfair Display',serif", fontSize: "26px", fontWeight: "700", margin: "0", color: th.text, letterSpacing: "-0.5px", lineHeight: "1" } }, "Staxxs"));
   hdrL.appendChild(brand);
   if (state.tab === "home") {
     hdrL.appendChild(el("p", { style: { margin: "8px 0 0", fontSize: "12px", color: th.sub, lineHeight: "1.4" } }, "Track your monthly wins, set earning goals, and watch your bags stack up."));
@@ -1061,7 +1061,7 @@ function renderProfile(th: Theme): HTMLElement {
     acct.appendChild(row);
     acct.appendChild(el("button", { style: { width: "100%", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.accent, fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => signOut() }, "Sign out"));
   } else {
-    acct.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 12px", lineHeight: "1.5" } }, cloudEnabled() ? "Sign in to sync your winnings across all your devices." : "Cloud sync isn't set up yet — Staxx still works and saves everything locally."));
+    acct.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 12px", lineHeight: "1.5" } }, cloudEnabled() ? "Sign in to sync your winnings across all your devices." : "Cloud sync isn't set up yet — Staxxs still works and saves everything locally."));
     acct.appendChild(primaryBtn("Sign in", () => { state.showAuth = true; state.authMode = "signin"; state.authError = ""; render(); }));
   }
   wrap.appendChild(acct);
@@ -1120,7 +1120,7 @@ function renderProfile(th: Theme): HTMLElement {
 
   // About
   const about = card("About");
-  about.appendChild(el("div", { style: { fontSize: "14px", fontWeight: "700", color: th.text, fontFamily: "'Playfair Display',serif" } }, "Staxx"));
+  about.appendChild(el("div", { style: { fontSize: "14px", fontWeight: "700", color: th.text, fontFamily: "'Playfair Display',serif" } }, "Staxxs"));
   about.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "4px 0 0", lineHeight: "1.5" } }, "Track your monthly wins, set earning goals, and watch your bags stack up."));
   about.appendChild(el("div", { style: { fontSize: "11px", color: th.muted, marginTop: "8px" } }, "v1.0.0"));
   wrap.appendChild(about);
@@ -1184,7 +1184,7 @@ function renderProfileSetupModal(th: Theme): HTMLElement {
   const ov = el("div", { style: { position: "fixed", inset: "0", background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: "205", padding: "20px", animation: "fadeIn .2s ease" } });
   const card = el("div", { style: { background: th.card, border: "1px solid " + th.border, borderRadius: "16px", padding: "26px", width: "100%", maxWidth: "360px", boxShadow: "0 12px 40px rgba(0,0,0,.25)" } });
   card.appendChild(el("h2", { style: { fontFamily: "'Playfair Display',serif", fontSize: "22px", margin: "0 0 4px", color: th.text } }, state.editingProfile ? "Edit profile" : "Set up profile"));
-  card.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 18px", lineHeight: "1.5" } }, "Choose how your Staxx profile looks across devices."));
+  card.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, margin: "0 0 18px", lineHeight: "1.5" } }, "Choose how your Staxxs profile looks across devices."));
 
   const avatarWrap = el("div", { style: { display: "flex", alignItems: "center", gap: "14px", marginBottom: "16px" } });
   const preview = el("div", { style: { width: "58px", height: "58px", borderRadius: "50%", background: th.accent, color: "#FFFCF7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", fontWeight: "700", overflow: "hidden", flexShrink: "0" } });

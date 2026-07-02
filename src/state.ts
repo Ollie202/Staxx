@@ -1,15 +1,15 @@
-import { KEY, DARK_KEY, TAB_KEY, DEFAULT_SOURCES, MONTHS, OTHER_SOURCE, YEARLY_GOAL_LABEL, normalizeMonth } from "./constants";
+import { KEY, DARK_KEY, TAB_KEY, OLD_KEY, OLD_DARK_KEY, OLD_TAB_KEY, DEFAULT_SOURCES, MONTHS, OTHER_SOURCE, YEARLY_GOAL_LABEL, normalizeMonth } from "./constants";
 import type { State, PersistedData, Tab, Goals, Win } from "./types";
 import { cloudSave } from "./cloud";
 import { render } from "./render";
 
 const readTab = (): Tab => {
-  const tab = localStorage.getItem(TAB_KEY);
+  const tab = localStorage.getItem(TAB_KEY) || localStorage.getItem(OLD_TAB_KEY);
   return tab === "insights" || tab === "profile" ? tab : "home";
 };
 
 export const state: State = {
-  dark: localStorage.getItem(DARK_KEY) === "true",
+  dark: (localStorage.getItem(DARK_KEY) || localStorage.getItem(OLD_DARK_KEY)) === "true",
   tab: readTab(),
   year: new Date().getFullYear(),
   chartType: "Bar",
@@ -88,7 +88,7 @@ export function normalizePersistedData(data: PersistedData): PersistedData {
 /** Load persisted data from localStorage into state. */
 export function load(): void {
   try {
-    const d = JSON.parse(localStorage.getItem(KEY) || "null") as PersistedData | null;
+    const d = JSON.parse(localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY) || "null") as PersistedData | null;
     if (d) {
       const normalized = normalizePersistedData(d);
       if (normalized.wins.length) state.wins = normalized.wins;

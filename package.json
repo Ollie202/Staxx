@@ -1,11 +1,11 @@
 {
-  "name": "staxx",
+  "name": "staxxs",
   "private": true,
   "version": "1.0.0",
   "description": "Personal monthly wins tracker with optional cloud sync (Vite + TypeScript + Supabase)",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://staxx-tracker.vercel.app",
+  "homepage": "https://staxxs-tracker.vercel.app",
   "repository": {
     "type": "git",
     "url": "https://github.com/Ollie202/Staxx.git"

@@ -1,4 +1,4 @@
-# Staxx
+# Staxxs
 
 A personal monthly wins tracker for logging earnings, setting goals, and visualizing income sources — with optional cloud sign-in so your data follows you across devices.
 
@@ -20,7 +20,7 @@ A personal monthly wins tracker for logging earnings, setting goals, and visuali
 ## Project Structure
 
 ```
-Staxx/
+Staxxs/
 ├── index.html            # Vite entry (mounts the app)
 ├── src/
 │   ├── main.ts           # Boot: load state, render, wire auth
@@ -144,7 +144,7 @@ using (account_email = lower(auth.jwt() ->> 'email'));
 
 RLS guarantees each user can only read/write the row for their verified email,
 even with the public anon key. Keeping `account_email` lets Google sign-in and
-email/password sign-in share the same Staxx data when they use the same email.
+email/password sign-in share the same Staxxs data when they use the same email.
 Keep Supabase email confirmation on, and do not enable users without an email.
 
 **2. Add credentials as env vars** (from Supabase → Project Settings → API):

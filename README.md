@@ -45,8 +45,8 @@ Staxxs/
 ## How to Run
 
 ```bash
-git clone https://github.com/Ollie202/Staxx.git
-cd Staxx
+git clone https://github.com/Ollie202/Staxxs.git
+cd Staxxs
 npm install
 cp .env.example .env   # optional: add Supabase keys for cloud sync
 npm run dev            # http://localhost:3457

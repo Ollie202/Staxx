@@ -3,6 +3,7 @@ import { monthIndex, normalizeMonth, OTHER_SOURCE, YEARLY_GOAL_LABEL } from "./c
 import { gid } from "./dom";
 import { render } from "./render";
 import type { Goals, Win } from "./types";
+import { saveFile } from "./download";
 
 function csvText(value: string | number): string {
   const raw = String(value).replace(/\r?\n/g, " ");
@@ -66,19 +67,11 @@ export function exportCSV(): void {
   render();
 }
 
-export function downloadCSV(): void {
+export async function downloadCSV(): Promise<void> {
   if (!state.csvText) exportCSV();
   if (!state.csvText) return;
   const blob = new Blob([state.csvText], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "Staxxs-" + state.year + ".csv";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast("CSV file downloaded");
+  await saveFile(blob, "Staxxs-" + state.year + ".csv", "Staxxs CSV export", "CSV file downloaded");
 }
 
 export function importCSV(): void {

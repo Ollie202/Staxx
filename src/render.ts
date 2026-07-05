@@ -8,6 +8,7 @@ import { renderChart } from "./chart";
 import { exportCSV, downloadCSV, importCSV } from "./csv";
 import { signInGoogle, signInEmail, signUpEmail, signOut } from "./auth";
 import { cloudEnabled } from "./supabaseClient";
+import { saveFile } from "./download";
 
 // Logo lives in public/ so it's copied to the deploy root; BASE_URL keeps the
 // path correct on both the Vercel root and the GitHub Pages /Staxxs/ subpath.
@@ -137,29 +138,37 @@ function confirmResetProgress(scope: "month" | "year"): void {
   render();
 }
 
-function downloadShareCard(): void {
-  const canvas = document.getElementById("monthShareCanvas") as HTMLCanvasElement | null;
-  if (!canvas) return;
-  const report = activeShareReport();
-  const a = document.createElement("a");
-  a.href = canvas.toDataURL("image/png");
-  a.download = "Staxxs-" + report.fileLabel + ".png";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  showToast("Report downloaded");
-}
-
-function canvasPngFile(): Promise<File | null> {
+function canvasBlob(): Promise<Blob | null> {
   const canvas = document.getElementById("monthShareCanvas") as HTMLCanvasElement | null;
   if (!canvas) return Promise.resolve(null);
-  const report = activeShareReport();
   return new Promise((resolve) => {
     canvas.toBlob((blob) => {
-      if (!blob) { resolve(null); return; }
-      resolve(new File([blob], "Staxxs-" + report.fileLabel + ".png", { type: "image/png" }));
+      if (blob) { resolve(blob); return; }
+      try {
+        const [head, body] = canvas.toDataURL("image/png").split(",");
+        const type = /data:(.*?);base64/.exec(head)?.[1] || "image/png";
+        const bin = atob(body);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        resolve(new Blob([bytes], { type }));
+      } catch {
+        resolve(null);
+      }
     }, "image/png");
   });
+}
+
+async function downloadShareCard(): Promise<void> {
+  const report = activeShareReport();
+  const blob = await canvasBlob();
+  if (!blob) { showToast("Could not prepare image"); return; }
+  await saveFile(blob, "Staxxs-" + report.fileLabel + ".png", "Staxxs " + report.title + " report", "Report downloaded", "Choose Save Image or Save to Files");
+}
+
+async function canvasPngFile(): Promise<File | null> {
+  const report = activeShareReport();
+  const blob = await canvasBlob();
+  return blob ? new File([blob], "Staxxs-" + report.fileLabel + ".png", { type: "image/png" }) : null;
 }
 
 async function shareReport(): Promise<void> {
@@ -178,9 +187,8 @@ async function shareReport(): Promise<void> {
       if ((error as Error).name === "AbortError") return;
     }
   }
-  downloadShareCard();
+  void downloadShareCard();
   window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text), "_blank", "noopener,noreferrer");
-  showToast("Image downloaded. Attach it to your X post.");
 }
 
 function drawRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -782,7 +790,7 @@ function renderCSVPanel(th: Theme, embedded = false): HTMLElement {
     cp.appendChild(el("p", { style: { fontSize: "12px", color: th.sub, marginBottom: "10px" } }, "Export all your data as CSV. Copy to clipboard, download as file, or paste into Google Sheets / Excel."));
     const btns = el("div", { style: { display: "flex", gap: "8px", flexWrap: "wrap" } });
     btns.appendChild(el("button", { style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "8px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => exportCSV() }, "Export to Clipboard"));
-    btns.appendChild(el("button", { style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "8px", border: "1px solid " + th.accent, background: "transparent", color: th.accent, fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => downloadCSV() }, "Download .csv File"));
+    btns.appendChild(el("button", { style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "8px", border: "1px solid " + th.accent, background: "transparent", color: th.accent, fontSize: "12px", fontWeight: "600", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { void downloadCSV(); } }, "Download .csv File"));
     btns.appendChild(el("button", { style: { padding: "11px 16px", borderRadius: "8px", border: "1px solid " + th.border, background: "transparent", color: th.sub, fontSize: "12px", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { state.showCSVPanel = false; render(); } }, "Close"));
     cp.appendChild(btns);
     if (state.csvText) {
@@ -953,7 +961,7 @@ function renderMonthReportModal(th: Theme): HTMLElement {
   card.appendChild(el("button", { type: "button", title: "Close", style: { position: "absolute", top: "24px", right: "24px", zIndex: "2", width: "34px", height: "34px", borderRadius: "50%", border: "1px solid " + th.border, background: th.card + "D9", color: th.sub, cursor: "pointer", fontSize: "20px", lineHeight: "1", boxShadow: "0 8px 18px rgba(0,0,0,.14)" }, onClick: () => close() }, "×"));
   card.appendChild(el("canvas", { id: "monthShareCanvas", width: "1080", height: "1080", style: { width: "100%", aspectRatio: "1 / 1", borderRadius: "18px", border: "1px solid " + th.border, background: "transparent", display: "block", boxShadow: "0 12px 34px rgba(0,0,0,.18)" } }));
   const actions = el("div", { style: { display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" } });
-  const dl = el("button", { type: "button", style: { flex: "1", minWidth: "130px", padding: "11px", borderRadius: "10px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px" }, onClick: () => downloadShareCard() });
+  const dl = el("button", { type: "button", style: { flex: "1", minWidth: "130px", padding: "11px", borderRadius: "10px", border: "none", background: th.accent, color: "#FFFCF7", fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: "7px" }, onClick: () => { void downloadShareCard(); } });
   dl.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Download</span>';
   actions.appendChild(dl);
   actions.appendChild(el("button", { type: "button", style: { flex: "1", minWidth: "120px", padding: "11px", borderRadius: "10px", border: "1px solid " + th.border, background: "transparent", color: th.accent, fontSize: "12px", fontWeight: "800", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }, onClick: () => { void shareReport(); } }, "Share on X"));

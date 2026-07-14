@@ -1,6 +1,6 @@
 import { KEY, OLD_KEY, DARK_KEY, OLD_DARK_KEY, TAB_KEY, OLD_TAB_KEY } from "./constants";
 
-const OLD_HOSTS = new Set(["wins-tracker-app.vercel.app", "staxx-tracker.vercel.app"]);
+const OLD_HOSTS = new Set(["wins-tracker-app.vercel.app"]);
 const TRANSFER_PREFIX = "staxxs-local-migration:";
 const CURRENT_URL = "https://staxxs.vercel.app/";
 

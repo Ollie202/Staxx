@@ -202,11 +202,11 @@ to enable cloud sync in production.
 ## Recovering data from old Vercel domains
 
 Browser localStorage belongs to one exact domain. Data saved on
-`wins-tracker-app.vercel.app` cannot be read directly by `staxxs-tracker.vercel.app`.
+`wins-tracker-app.vercel.app` cannot be read directly by `staxxs.vercel.app`.
 To recover users who saved data on an old domain:
 
-1. In Vercel, add the old domain/alias (`wins-tracker-app.vercel.app`, or
-   `staxx-tracker.vercel.app`) back to the current Staxxs project.
+1. In Vercel, point the old alias (`wins-tracker-app.vercel.app`) to the current
+   Staxxs project.
 2. Deploy this current code to that alias.
 3. Ask the user to open the old URL once in the same browser/device where their
    data existed.

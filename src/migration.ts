@@ -26,8 +26,33 @@ function localStorageSnapshot(): Record<string, string> {
 }
 
 function pickDataKey(items: Record<string, string>): string | null {
-  const preferred = [KEY, OLD_KEY, "wins-tracker-v1", "wins-tracker", "earnings-tracker-v1", "earnings-tracker"];
-  return preferred.find((key) => !!items[key]) || null;
+  const preferred = [
+    KEY,
+    OLD_KEY,
+    "moneymade-v2",
+    "moneymade-v1",
+    "wins-tracker-v1",
+    "wins-tracker",
+    "earnings-tracker-v1",
+    "earnings-tracker",
+  ];
+  const knownKey = preferred.find((key) => !!items[key]);
+  if (knownKey) return knownKey;
+  return Object.keys(items).find((key) => looksLikePersistedData(items[key])) || null;
+}
+
+function looksLikePersistedData(raw: string): boolean {
+  try {
+    const parsed = JSON.parse(raw) as { wins?: unknown; goals?: unknown; sources?: unknown };
+    const wins = Array.isArray(parsed.wins) ? parsed.wins : [];
+    const hasWinShape = wins.some((item) => {
+      const win = item as { month?: unknown; amount?: unknown; project?: unknown };
+      return typeof win.month === "string" && typeof win.project === "string" && typeof win.amount === "number";
+    });
+    return hasWinShape || (wins.length === 0 && !!parsed.goals && typeof parsed.goals === "object") || Array.isArray(parsed.sources);
+  } catch {
+    return false;
+  }
 }
 
 function mergeData(existingRaw: string | null, incomingRaw: string): string {
@@ -64,11 +89,15 @@ function importTransfer(raw: string): boolean {
   try {
     const transfer = JSON.parse(raw.slice(TRANSFER_PREFIX.length)) as MigrationTransfer;
     const dataKey = pickDataKey(transfer.items || {});
-    if (!dataKey) return false;
+    if (!dataKey) {
+      window.name = "";
+      sessionStorage.setItem("staxxs-migration-empty", transfer.from);
+      return false;
+    }
 
     localStorage.setItem(KEY, mergeData(localStorage.getItem(KEY), transfer.items[dataKey]));
-    if (transfer.items[DARK_KEY] || transfer.items[OLD_DARK_KEY]) {
-      localStorage.setItem(DARK_KEY, transfer.items[DARK_KEY] || transfer.items[OLD_DARK_KEY]);
+    if (transfer.items[DARK_KEY] || transfer.items[OLD_DARK_KEY] || transfer.items["moneymade-dark"]) {
+      localStorage.setItem(DARK_KEY, transfer.items[DARK_KEY] || transfer.items[OLD_DARK_KEY] || transfer.items["moneymade-dark"]);
     }
     if (transfer.items[TAB_KEY] || transfer.items[OLD_TAB_KEY]) {
       localStorage.setItem(TAB_KEY, transfer.items[TAB_KEY] || transfer.items[OLD_TAB_KEY]);
@@ -104,6 +133,17 @@ export function consumeMigrationNotice(): string | null {
     const from = sessionStorage.getItem("staxxs-migration-done");
     if (!from) return null;
     sessionStorage.removeItem("staxxs-migration-done");
+    return from;
+  } catch {
+    return null;
+  }
+}
+
+export function consumeEmptyMigrationNotice(): string | null {
+  try {
+    const from = sessionStorage.getItem("staxxs-migration-empty");
+    if (!from) return null;
+    sessionStorage.removeItem("staxxs-migration-empty");
     return from;
   } catch {
     return null;

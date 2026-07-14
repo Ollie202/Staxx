@@ -216,6 +216,8 @@ To recover users who saved data on an old domain:
    data existed.
 4. The old URL will read its own localStorage, redirect to
    `https://staxxs.vercel.app/`, and import the data there.
+5. If no data is found, the user is probably on a different device/browser/profile
+   than the one that originally saved the local data.
 
 This cannot be done with a script tag from only the new domain because browsers
 block one domain from reading another domain's localStorage.

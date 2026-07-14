@@ -3,7 +3,7 @@ import { MONTHS } from "./constants";
 import { load, state, showToast } from "./state";
 import { render } from "./render";
 import { initAuth } from "./auth";
-import { consumeMigrationNotice, migrateOldDomainData } from "./migration";
+import { consumeEmptyMigrationNotice, consumeMigrationNotice, migrateOldDomainData } from "./migration";
 
 // Boot
 const migration = migrateOldDomainData();
@@ -13,6 +13,8 @@ if (migration !== "redirecting") {
   initAuth();
   const migratedFrom = consumeMigrationNotice();
   if (migratedFrom) showToast("Recovered local data from " + migratedFrom);
+  const emptyMigrationFrom = consumeEmptyMigrationNotice();
+  if (emptyMigrationFrom) showToast("No old local data found for " + emptyMigrationFrom);
 
   let calendarYear = new Date().getFullYear();
   let calendarMonth = MONTHS[new Date().getMonth()];

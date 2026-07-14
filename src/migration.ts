@@ -2,6 +2,7 @@ import { KEY, OLD_KEY, DARK_KEY, OLD_DARK_KEY, TAB_KEY, OLD_TAB_KEY } from "./co
 
 const OLD_HOSTS = new Set(["wins-tracker-app.vercel.app", "staxx-tracker.vercel.app"]);
 const TRANSFER_PREFIX = "staxxs-local-migration:";
+const CURRENT_URL = "https://staxxs.vercel.app/";
 
 interface MigrationTransfer {
   from: string;
@@ -90,7 +91,7 @@ export function migrateOldDomainData(): "imported" | "redirecting" | "idle" {
       items: localStorageSnapshot(),
     };
     window.name = TRANSFER_PREFIX + JSON.stringify(transfer);
-    window.location.replace("https://staxxs-tracker.vercel.app/");
+    window.location.replace(CURRENT_URL);
     return "redirecting";
   }
 

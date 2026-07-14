@@ -109,6 +109,10 @@ where public.user_data.user_id = auth.users.id
 create unique index if not exists user_data_account_email_key
 on public.user_data (account_email);
 
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.user_data to authenticated;
+revoke all on public.user_data from anon;
+
 drop policy if exists "own data select" on public.user_data;
 drop policy if exists "own data insert" on public.user_data;
 drop policy if exists "own data update" on public.user_data;

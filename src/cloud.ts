@@ -96,6 +96,11 @@ async function flushCloudSave(): Promise<void> {
   }
   saveInFlight = false;
   if (!failed && pendingSave === pending) pendingSave = null;
+  if (failed && pendingSave === pending) {
+    clearTimeout(cloudTimer);
+    cloudTimer = setTimeout(() => { void flushCloudSave(); }, 5000);
+    return;
+  }
   if (pendingSave && pendingSave !== pending) void flushCloudSave();
 }
 

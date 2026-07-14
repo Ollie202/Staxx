@@ -746,10 +746,6 @@ export function render(): void {
   bottom.appendChild(sCol);
   app.appendChild(bottom);
 
-  // Footer tip
-  const footer = el("div", { style: { textAlign: "center", padding: "0 20px 24px" } });
-  footer.appendChild(el("p", { style: { fontSize: "10px", color: th.muted, margin: "0", lineHeight: "1.5" } }, state.user ? "Synced to your account — " + state.user.email : cloudEnabled() ? "Sign in to sync your bags across devices. Your data is saved locally too." : "Your data lives in this browser. Export CSV regularly to back up or switch devices."));
-  app.appendChild(footer);
   } else if (state.tab === "insights") {
     app.appendChild(renderInsights(th));
   } else {
